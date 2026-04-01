@@ -958,7 +958,7 @@ app.get('/api/teamtailor/jobs', async (req, res) => {
           const innerText = match[3].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').replace(/&middot;/g, '*').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n)).replace(/&nbsp;/g, ' ').trim();
           const url = rawUrl.startsWith('http') ? rawUrl : `https://jobs.talentysrh.com${rawUrl}`;
           // Parse "Title  Department * Location" pattern
-          const parts = innerText.split(/\s**\s*/);
+          const parts = innerText.split(/\s*\*\s*/);
           const titlePart = (parts[0] || '').trim();
           const locationPart = (parts[parts.length - 1] || '').trim();
           const deptPart = parts.length > 2 ? parts[1].trim() : (parts.length > 1 ? parts[1].trim() : '');
