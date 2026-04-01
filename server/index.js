@@ -20,7 +20,7 @@ app.use(cors({
   origin: IS_PROD ? true : (process.env.FRONTEND_URL || 'http://localhost:5173'),
   credentials: true,
 }));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json());
 app.use(cookieParser());
 
 // Trust proxy in production (Render.com uses reverse proxy)
@@ -29,9 +29,9 @@ if (IS_PROD) app.set('trust proxy', 1);
 // In-memory token store (production: use a real DB or session store)
 const tokenStore = new Map();
 
-/* ════════════════════════════════════════════════════════════════════
+/* ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
    USER DATABASE (JSON file-based for simplicity)
-   ════════════════════════════════════════════════════════════════════ */
+   ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 const hashPassword = (pwd) => createHash('sha256').update(pwd + 'postflow-salt-2026').digest('hex');
 
 const loadUsers = () => {
@@ -68,9 +68,9 @@ const initDB = () => {
 let usersDB = initDB();
 const sessionStore = new Map();
 
-/* ════════════════════════════════════════════════════════════════════
+/* ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
    ACTIVITY TRACKING
-   ════════════════════════════════════════════════════════════════════ */
+   ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 const loadActivity = () => {
   try { if (existsSync(ACTIVITY_PATH)) return JSON.parse(readFileSync(ACTIVITY_PATH, 'utf8')); } catch {}
   return [];
@@ -97,13 +97,13 @@ const logActivity = (userId, userName, action, details = {}) => {
   saveActivity(logs);
 };
 
-/* ════════════════════════════════════════════════════════════════════
+/* ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
    AUTH MIDDLEWARE
-   ════════════════════════════════════════════════════════════════════ */
+   ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 const requireAuth = (req, res, next) => {
   const sessionId = req.cookies.postflow_session;
   if (!sessionId || !sessionStore.has(sessionId)) {
-    return res.status(401).json({ error: 'Non authentifié' });
+    return res.status(401).json({ error: 'Non authentifiÃ©' });
   }
   req.user = sessionStore.get(sessionId);
   next();
@@ -111,14 +111,14 @@ const requireAuth = (req, res, next) => {
 
 const requireAdmin = (req, res, next) => {
   if (req.user?.role !== 'admin') {
-    return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
+    return res.status(403).json({ error: 'AccÃ¨s rÃ©servÃ© aux administrateurs' });
   }
   next();
 };
 
-/* ════════════════════════════════════════════════════════════════════
+/* ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
    AUTH ROUTES
-   ════════════════════════════════════════════════════════════════════ */
+   ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 app.post('/api/auth/login', (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
@@ -126,7 +126,7 @@ app.post('/api/auth/login', (req, res) => {
   usersDB = loadUsers();
   const user = usersDB.find(u => u.email.toLowerCase() === email.toLowerCase());
   if (!user) return res.status(401).json({ error: 'Identifiants incorrects' });
-  if (user.status === 'disabled') return res.status(403).json({ error: 'Compte désactivé' });
+  if (user.status === 'disabled') return res.status(403).json({ error: 'Compte dÃ©sactivÃ©' });
   if (user.password !== hashPassword(password)) return res.status(401).json({ error: 'Identifiants incorrects' });
 
   const sessionId = randomBytes(32).toString('hex');
@@ -156,11 +156,11 @@ app.get('/api/auth/me', (req, res) => {
 
 app.post('/api/auth/change-password', requireAuth, (req, res) => {
   const { newPassword } = req.body;
-  if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' });
+  if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractÃ¨res' });
 
   usersDB = loadUsers();
   const user = usersDB.find(u => u.id === req.user.id);
-  if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+  if (!user) return res.status(404).json({ error: 'Utilisateur non trouvÃ©' });
 
   user.password = hashPassword(newPassword);
   user.mustChangePassword = false;
@@ -168,9 +168,9 @@ app.post('/api/auth/change-password', requireAuth, (req, res) => {
   res.json({ success: true });
 });
 
-/* ════════════════════════════════════════════════════════════════════
-   ADMIN — USER MANAGEMENT
-   ════════════════════════════════════════════════════════════════════ */
+/* ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+   ADMIN â USER MANAGEMENT
+   ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 app.get('/api/admin/users', requireAuth, requireAdmin, (req, res) => {
   usersDB = loadUsers();
   const safeUsers = usersDB.map(({ password, ...u }) => u);
@@ -183,7 +183,7 @@ app.post('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
 
   usersDB = loadUsers();
   if (usersDB.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-    return res.status(409).json({ error: 'Cet email est déjà utilisé' });
+    return res.status(409).json({ error: 'Cet email est dÃ©jÃ  utilisÃ©' });
   }
 
   const tempPassword = randomBytes(4).toString('hex');
@@ -217,7 +217,7 @@ app.post('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
 app.delete('/api/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
   usersDB = loadUsers();
   const idx = usersDB.findIndex(u => u.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+  if (idx === -1) return res.status(404).json({ error: 'Utilisateur non trouvÃ©' });
   if (usersDB[idx].role === 'admin' && usersDB.filter(u => u.role === 'admin').length <= 1) {
     return res.status(400).json({ error: 'Impossible de supprimer le dernier administrateur' });
   }
@@ -229,7 +229,7 @@ app.delete('/api/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
 app.patch('/api/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
   usersDB = loadUsers();
   const user = usersDB.find(u => u.id === req.params.id);
-  if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+  if (!user) return res.status(404).json({ error: 'Utilisateur non trouvÃ©' });
 
   const { name, role, status } = req.body;
   if (name) user.name = name.trim();
@@ -244,7 +244,7 @@ app.patch('/api/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
 app.post('/api/admin/users/:id/resend-invite', requireAuth, requireAdmin, async (req, res) => {
   usersDB = loadUsers();
   const user = usersDB.find(u => u.id === req.params.id);
-  if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+  if (!user) return res.status(404).json({ error: 'Utilisateur non trouvÃ©' });
 
   const tempPassword = randomBytes(4).toString('hex');
   user.password = hashPassword(tempPassword);
@@ -256,18 +256,20 @@ app.post('/api/admin/users/:id/resend-invite', requireAuth, requireAdmin, async 
   res.json({ success: true, tempPassword, emailSent });
 });
 
-/* ════════════════════════════════════════════════════════════════════
-   ADMIN — RESET DATA (clean slate)
-   ════════════════════════════════════════════════════════════════════ */
+/* ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+   ADMIN â RESET DATA (clean slate)
+   ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 app.post('/api/admin/reset', requireAuth, requireAdmin, (req, res) => {
   const { resetUsers, resetActivity } = req.body;
 
   if (resetActivity !== false) {
+    // Clear all activity logs
     saveActivity([]);
   }
 
   if (resetUsers !== false) {
-    const currentAdmin = usersDB.find(u => u.id === req.user?.id);
+    // Reset users: keep only the current admin, reset all others
+    const currentAdmin = usersDB.find(u => u.id === req.session?.userId);
     const freshAdmin = {
       id: 'admin-001',
       email: currentAdmin?.email || 'marc.beauzile@mobilite-rh-outremer.net',
@@ -281,19 +283,21 @@ app.post('/api/admin/reset', requireAuth, requireAdmin, (req, res) => {
     saveUsers(usersDB);
   }
 
+  // Clear LinkedIn tokens
   tokenStore.clear();
+  // Clear all sessions except current
   const currentSessionId = req.cookies?.postflow_session;
   for (const [sid] of sessionStore) {
     if (sid !== currentSessionId) sessionStore.delete(sid);
   }
 
-  console.log('Database reset performed by admin');
-  res.json({ success: true, message: 'Données réinitialisées avec succès' });
+  console.log('ð Database reset performed by admin');
+  res.json({ success: true, message: 'DonnÃ©es rÃ©initialisÃ©es avec succÃ¨s' });
 });
 
-/* ════════════════════════════════════════════════════════════════════
-   ADMIN — ACTIVITY TRACKING API
-   ════════════════════════════════════════════════════════════════════ */
+/* ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+   ADMIN â ACTIVITY TRACKING API
+   ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 app.get('/api/admin/activity', requireAuth, requireAdmin, (req, res) => {
   const { userId, limit = 100 } = req.query;
   let logs = loadActivity();
@@ -340,14 +344,14 @@ app.get('/api/admin/activity/stats', requireAuth, requireAdmin, (req, res) => {
 app.post('/api/activity/track', requireAuth, (req, res) => {
   const { action, details } = req.body;
   const allowed = ['generate_post', 'schedule_post', 'use_template', 'search_pexels', 'copy_post', 'upload_image', 'publish_linkedin'];
-  if (!allowed.includes(action)) return res.status(400).json({ error: 'Action non autorisée' });
+  if (!allowed.includes(action)) return res.status(400).json({ error: 'Action non autorisÃ©e' });
   logActivity(req.user.id, req.user.name, action, details || {});
   res.json({ success: true });
 });
 
-/* ════════════════════════════════════════════════════════════════════
-   EMAIL — INVITATION WITH TUTORIAL
-   ════════════════════════════════════════════════════════════════════ */
+/* ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+   EMAIL â INVITATION WITH TUTORIAL
+   ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 const getMailTransporter = () => {
   if (process.env.SMTP_HOST) {
     return nodemailer.createTransport({
@@ -370,7 +374,7 @@ const getMailTransporter = () => {
 const sendInvitationEmail = async (user, tempPassword) => {
   const transporter = getMailTransporter();
   if (!transporter) {
-    console.log('⚠️  No email config — invitation not sent. Temp password:', tempPassword);
+    console.log('â ï¸  No email config â invitation not sent. Temp password:', tempPassword);
     return false;
   }
 
@@ -388,7 +392,7 @@ const sendInvitationEmail = async (user, tempPassword) => {
   <!-- Header -->
   <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6,#ec4899);border-radius:16px 16px 0 0;padding:32px 24px;text-align:center;">
     <div style="width:56px;height:56px;background:rgba(255,255,255,0.2);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
-      <span style="font-size:28px;">⚡</span>
+      <span style="font-size:28px;">â¡</span>
     </div>
     <h1 style="color:#fff;margin:0;font-size:24px;font-weight:800;">Bienvenue sur PostFlow</h1>
     <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px;">by Talentys RH</p>
@@ -398,30 +402,30 @@ const sendInvitationEmail = async (user, tempPassword) => {
   <div style="background:#fff;padding:32px 24px;border-left:1px solid #e2e5f0;border-right:1px solid #e2e5f0;">
     <p style="color:#1a1d2e;font-size:16px;margin:0 0 16px;">Bonjour <strong>${user.name}</strong>,</p>
     <p style="color:#5c5f7e;font-size:14px;line-height:1.6;margin:0 0 24px;">
-      Marco Beauzile vous invite à rejoindre <strong>PostFlow</strong>, l'outil de gestion et de publication LinkedIn de Talentys RH.
-      Votre compte a été créé et est prêt à utiliser !
+      Marco Beauzile vous invite Ã  rejoindre <strong>PostFlow</strong>, l'outil de gestion et de publication LinkedIn de Talentys RH.
+      Votre compte a Ã©tÃ© crÃ©Ã© et est prÃªt Ã  utiliser !
     </p>
 
     <!-- Credentials Box -->
     <div style="background:#f8f9fc;border:1px solid #e2e5f0;border-radius:12px;padding:20px;margin:0 0 24px;">
-      <h3 style="color:#1a1d2e;font-size:14px;margin:0 0 12px;font-weight:700;">🔑 Vos identifiants de connexion</h3>
+      <h3 style="color:#1a1d2e;font-size:14px;margin:0 0 12px;font-weight:700;">ð Vos identifiants de connexion</h3>
       <table style="width:100%;font-size:14px;">
         <tr><td style="color:#5c5f7e;padding:4px 0;">Email :</td><td style="color:#1a1d2e;font-weight:600;">${user.email}</td></tr>
         <tr><td style="color:#5c5f7e;padding:4px 0;">Mot de passe temporaire :</td><td style="color:#6366f1;font-weight:700;font-family:monospace;font-size:16px;">${tempPassword}</td></tr>
       </table>
-      <p style="color:#ef4444;font-size:12px;margin:12px 0 0;">⚠️ Vous devrez changer votre mot de passe lors de votre première connexion.</p>
+      <p style="color:#ef4444;font-size:12px;margin:12px 0 0;">â ï¸ Vous devrez changer votre mot de passe lors de votre premiÃ¨re connexion.</p>
     </div>
 
     <!-- CTA Button -->
     <div style="text-align:center;margin:0 0 32px;">
       <a href="${appUrl}" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:700;font-size:15px;box-shadow:0 4px 15px rgba(99,102,241,0.3);">
-        Se connecter à PostFlow →
+        Se connecter Ã  PostFlow â
       </a>
     </div>
 
     <!-- Tutorial Section -->
     <div style="border-top:1px solid #e2e5f0;padding-top:24px;">
-      <h2 style="color:#1a1d2e;font-size:18px;margin:0 0 16px;font-weight:800;">📖 Guide de démarrage rapide</h2>
+      <h2 style="color:#1a1d2e;font-size:18px;margin:0 0 16px;font-weight:800;">ð Guide de dÃ©marrage rapide</h2>
 
       <!-- Step 1 -->
       <div style="display:flex;gap:12px;margin:0 0 20px;">
@@ -445,8 +449,8 @@ const sendInvitationEmail = async (user, tempPassword) => {
         <div>
           <h4 style="color:#1a1d2e;margin:0 0 4px;font-size:14px;">Liez votre compte LinkedIn</h4>
           <p style="color:#5c5f7e;font-size:13px;margin:0;line-height:1.5;">
-            En bas à gauche de l'écran, cliquez sur <strong>"Non connecté"</strong> puis <strong>"Se connecter avec LinkedIn"</strong>.
-            Autorisez PostFlow à publier en votre nom. C'est sécurisé via OAuth 2.0 — nous ne voyons jamais votre mot de passe LinkedIn.
+            En bas Ã  gauche de l'Ã©cran, cliquez sur <strong>"Non connectÃ©"</strong> puis <strong>"Se connecter avec LinkedIn"</strong>.
+            Autorisez PostFlow Ã  publier en votre nom. C'est sÃ©curisÃ© via OAuth 2.0 â nous ne voyons jamais votre mot de passe LinkedIn.
           </p>
         </div>
       </div>
@@ -457,10 +461,10 @@ const sendInvitationEmail = async (user, tempPassword) => {
           <span style="color:#fff;font-weight:800;font-size:16px;">3</span>
         </div>
         <div>
-          <h4 style="color:#1a1d2e;margin:0 0 4px;font-size:14px;">Créez votre premier post</h4>
+          <h4 style="color:#1a1d2e;margin:0 0 4px;font-size:14px;">CrÃ©ez votre premier post</h4>
           <p style="color:#5c5f7e;font-size:13px;margin:0;line-height:1.5;">
-            Cliquez sur <strong>"Créer un post"</strong> dans le menu. Choisissez une catégorie (offre d'emploi, conseil RH, etc.), sélectionnez le ton souhaité, puis cliquez sur <strong>"Générer"</strong>.
-            Vous pouvez modifier le texte, ajouter une image Pexels et prévisualiser le résultat.
+            Cliquez sur <strong>"CrÃ©er un post"</strong> dans le menu. Choisissez une catÃ©gorie (offre d'emploi, conseil RH, etc.), sÃ©lectionnez le ton souhaitÃ©, puis cliquez sur <strong>"GÃ©nÃ©rer"</strong>.
+            Vous pouvez modifier le texte, ajouter une image Pexels et prÃ©visualiser le rÃ©sultat.
           </p>
         </div>
       </div>
@@ -474,7 +478,7 @@ const sendInvitationEmail = async (user, tempPassword) => {
           <h4 style="color:#1a1d2e;margin:0 0 4px;font-size:14px;">Publiez ou programmez</h4>
           <p style="color:#5c5f7e;font-size:13px;margin:0;line-height:1.5;">
             Deux options : <strong>"Publier maintenant"</strong> pour poster directement sur LinkedIn, ou <strong>"Programmer"</strong> pour choisir une date et heure.
-            Retrouvez toutes vos publications planifiées dans l'onglet <strong>Calendrier</strong>.
+            Retrouvez toutes vos publications planifiÃ©es dans l'onglet <strong>Calendrier</strong>.
           </p>
         </div>
       </div>
@@ -487,7 +491,7 @@ const sendInvitationEmail = async (user, tempPassword) => {
         <div>
           <h4 style="color:#1a1d2e;margin:0 0 4px;font-size:14px;">Explorez les Templates</h4>
           <p style="color:#5c5f7e;font-size:13px;margin:0;line-height:1.5;">
-            L'onglet <strong>Templates</strong> contient 20 modèles prêts à l'emploi : offres d'emploi, conseils RH, témoignages, prospection…
+            L'onglet <strong>Templates</strong> contient 20 modÃ¨les prÃªts Ã  l'emploi : offres d'emploi, conseils RH, tÃ©moignages, prospectionâ¦
             Cliquez sur un template pour l'utiliser comme base de votre publication.
           </p>
         </div>
@@ -495,14 +499,14 @@ const sendInvitationEmail = async (user, tempPassword) => {
 
       <!-- Tips Box -->
       <div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:12px;padding:16px;margin:20px 0 0;">
-        <h4 style="color:#4f46e5;font-size:13px;margin:0 0 8px;">💡 Astuces pour des posts LinkedIn performants</h4>
+        <h4 style="color:#4f46e5;font-size:13px;margin:0 0 8px;">ð¡ Astuces pour des posts LinkedIn performants</h4>
         <ul style="color:#5c5f7e;font-size:13px;margin:0;padding-left:16px;line-height:1.8;">
-          <li>Postez idéalement entre <strong>8h et 10h</strong> du matin (heure locale)</li>
+          <li>Postez idÃ©alement entre <strong>8h et 10h</strong> du matin (heure locale)</li>
           <li>Les mardis et jeudis ont le meilleur engagement</li>
-          <li>Ajoutez toujours une <strong>image</strong> — les posts avec visuels obtiennent 2x plus de vues</li>
+          <li>Ajoutez toujours une <strong>image</strong> â les posts avec visuels obtiennent 2x plus de vues</li>
           <li>Terminez par une <strong>question ouverte</strong> pour encourager les commentaires</li>
-          <li>Utilisez 3 à 5 hashtags maximum, pas plus</li>
-          <li>Objectif : <strong>3 posts par semaine</strong> pour une visibilité optimale</li>
+          <li>Utilisez 3 Ã  5 hashtags maximum, pas plus</li>
+          <li>Objectif : <strong>3 posts par semaine</strong> pour une visibilitÃ© optimale</li>
         </ul>
       </div>
     </div>
@@ -511,8 +515,8 @@ const sendInvitationEmail = async (user, tempPassword) => {
   <!-- Footer -->
   <div style="background:#f8f9fc;border-radius:0 0 16px 16px;padding:20px 24px;text-align:center;border:1px solid #e2e5f0;border-top:none;">
     <p style="color:#9496b0;font-size:12px;margin:0;">
-      PostFlow by Talentys RH — Cabinet de recrutement spécialisé Outre-Mer<br>
-      Martinique • Guadeloupe • Guyane • Réunion • Mayotte<br><br>
+      PostFlow by Talentys RH â Cabinet de recrutement spÃ©cialisÃ© Outre-Mer<br>
+      Martinique â¢ Guadeloupe â¢ Guyane â¢ RÃ©union â¢ Mayotte<br><br>
       Des questions ? Contactez Marco : <a href="mailto:marc.beauzile@mobilite-rh-outremer.net" style="color:#6366f1;">marc.beauzile@mobilite-rh-outremer.net</a>
     </p>
   </div>
@@ -524,17 +528,17 @@ const sendInvitationEmail = async (user, tempPassword) => {
   await transporter.sendMail({
     from: `"${fromName}" <${fromEmail}>`,
     to: user.email,
-    subject: '🚀 Bienvenue sur PostFlow — Votre compte est prêt !',
+    subject: 'ð Bienvenue sur PostFlow â Votre compte est prÃªt !',
     html,
   });
 
-  console.log(`✅ Invitation email sent to ${user.email}`);
+  console.log(`â Invitation email sent to ${user.email}`);
   return true;
 };
 
-/* ════════════════════════════════════════════════════════════════════
+/* ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
    LINKEDIN OAuth 2.0
-   ════════════════════════════════════════════════════════════════════ */
+   ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 
 // Step 1: Redirect user to LinkedIn authorization page
 app.get('/api/linkedin/auth', (req, res) => {
@@ -660,15 +664,17 @@ async function uploadImageToLinkedIn(access_token, personId, imageBuffer) {
     maxBodyLength: 10 * 1024 * 1024,
   });
 
-  return asset;
+  return asset; // e.g. "urn:li:digitalmediaAsset:D5622..."
 }
 
 // Helper: get image buffer from URL or base64 data URI
 async function getImageBuffer(imageUrl) {
   if (imageUrl.startsWith('data:')) {
+    // Base64 data URI (uploaded image)
     const base64Data = imageUrl.split(',')[1];
     return Buffer.from(base64Data, 'base64');
   } else {
+    // Remote URL (Pexels, etc.) â download it
     const response = await axios.get(imageUrl, {
       responseType: 'arraybuffer',
       timeout: 15000,
@@ -680,7 +686,7 @@ async function getImageBuffer(imageUrl) {
 app.post('/api/linkedin/publish', async (req, res) => {
   const userId = req.cookies.linkedin_user;
   if (!userId || !tokenStore.has(userId)) {
-    return res.status(401).json({ error: 'Non connecté à LinkedIn' });
+    return res.status(401).json({ error: 'Non connectÃ© Ã  LinkedIn' });
   }
 
   const { access_token, profile } = tokenStore.get(userId);
@@ -690,6 +696,7 @@ app.post('/api/linkedin/publish', async (req, res) => {
     let shareMediaCategory = 'NONE';
     let media = undefined;
 
+    // If we have an image, upload it to LinkedIn first
     if (imageUrl) {
       try {
         console.log('Uploading image to LinkedIn...');
@@ -705,6 +712,7 @@ app.post('/api/linkedin/publish', async (req, res) => {
         }];
       } catch (imgErr) {
         console.error('Image upload failed, publishing without image:', imgErr.message);
+        // Fall back to text-only post if image upload fails
       }
     }
 
@@ -731,6 +739,7 @@ app.post('/api/linkedin/publish', async (req, res) => {
       },
     });
 
+    // Track activity
     const sessId = req.cookies.postflow_session;
     const sessUser = sessId && sessionStore.has(sessId) ? sessionStore.get(sessId) : null;
     logActivity(sessUser?.id || userId, sessUser?.name || 'Unknown', 'publish_linkedin', { textLength: text?.length, hasImage: !!imageUrl, imageUploaded: shareMediaCategory === 'IMAGE' });
@@ -755,15 +764,15 @@ app.post('/api/linkedin/disconnect', (req, res) => {
   res.json({ success: true });
 });
 
-/* ════════════════════════════════════════════════════════════════════
+/* ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
    PEXELS API
-   ════════════════════════════════════════════════════════════════════ */
+   ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 
 app.get('/api/pexels/search', async (req, res) => {
   const { query, page = 1, per_page = 15 } = req.query;
 
   if (!process.env.PEXELS_API_KEY) {
-    return res.status(500).json({ error: 'Clé API Pexels non configurée' });
+    return res.status(500).json({ error: 'ClÃ© API Pexels non configurÃ©e' });
   }
 
   try {
@@ -790,16 +799,111 @@ app.get('/api/pexels/search', async (req, res) => {
   }
 });
 
-/* ════════════════════════════════════════════════════════════════════
-   TEAMTAILOR — Fetch real jobs from career site
-   ════════════════════════════════════════════════════════════════════ */
+/* ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+   AI POST GENERATION â Claude Opus 4.6 via Anthropic API
+   ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
+
+const LINKEDIN_EXPERT_PROMPT = `Tu es un ghostwriter LinkedIn d'Ã©lite, spÃ©cialisÃ© dans le personal branding B2B et la gÃ©nÃ©ration d'engagement organique. Tu rÃ©diges pour Marco Beauzile, fondateur de Talentys RH, cabinet de recrutement spÃ©cialisÃ© Outre-Mer (Martinique, Guadeloupe, Guyane, RÃ©union, Mayotte).
+
+RÃGLES DE RÃDACTION ABSOLUES :
+1. ACCROCHE IRRÃSISTIBLE (1Ã¨re ligne) â C'est elle qui dÃ©cide si le post sera lu. Provoque la curiositÃ©, utilise une stat percutante, une question rhÃ©torique, une affirmation contre-intuitive ou un storytelling immÃ©diat. JAMAIS de emoji en premiÃ¨re ligne. La premiÃ¨re ligne doit donner envie de cliquer "voir plus".
+2. STRUCTURE AÃRÃE â Sauts de ligne frÃ©quents. Maximum 2-3 lignes par paragraphe. Le scroll doit Ãªtre fluide sur mobile.
+3. TON HUMAIN ET AUTHENTIQUE â Ãcris comme quelqu'un qui parle Ã  son rÃ©seau, pas comme un communiquÃ© corporate. Ose la 1Ã¨re personne, les anecdotes, les convictions fortes.
+4. VALEUR CONCRÃTE â Chaque post doit apporter quelque chose : un insight, un chiffre, une mÃ©thode, un retour d'expÃ©rience. Pas de platitudes.
+5. ENGAGEMENT NATIF â Termine par un Ã©lÃ©ment qui gÃ©nÃ¨re des rÃ©actions : question ouverte, sondage implicite, appel au partage d'expÃ©rience, prise de position qui invite au dÃ©bat.
+6. ZÃRO LIEN EXTERNE dans le corps du post (LinkedIn pÃ©nalise les liens). Si CTA, utilise "DM ouvert" ou "commentez".
+7. HASHTAGS STRATÃGIQUES â 3 Ã  5 max, pertinents, en fin de post. Mix de hashtags populaires et niches.
+8. LONGUEUR OPTIMALE â Entre 800 et 1500 caractÃ¨res. Assez long pour apporter de la valeur, assez court pour Ãªtre lu en entier.
+9. EMOJIS AVEC PARCIMONIE â 2-4 max par post, jamais en dÃ©but de ligne systÃ©matique. Utilise-les comme ponctuations visuelles, pas comme dÃ©coration.
+10. PAS DE FORMAT LISTE SYSTÃMATIQUE â Varie entre storytelling, opinion tranchÃ©e, retour d'expÃ©rience, question, thread mini, analyse.
+
+EXPERTISE DE MARCO :
+- 10+ ans dans le recrutement en Outre-Mer
+- RÃ©seau de +2000 contacts qualifiÃ©s dans les DOM
+- SpÃ©cialiste du recrutement de cadres et profils pÃ©nuriques en territoires ultramarins
+- Connaissance intime du tissu Ã©conomique de chaque territoire
+- Approche : recrutement par approche directe + rÃ©seau diaspora
+
+OBJECTIF DE CHAQUE POST : Maximiser l'engagement (likes, commentaires, partages, enregistrements) tout en positionnant Marco comme LA rÃ©fÃ©rence recrutement Outre-Mer.`;
+
+app.post('/api/generate', requireAuth, async (req, res) => {
+  const { topic, tone, category, includeHashtags, includeCTA, jobInfo } = req.body;
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(500).json({ error: 'ClÃ© API Anthropic non configurÃ©e. Ajoutez ANTHROPIC_API_KEY dans les variables d\'environnement.' });
+  }
+
+  const toneInstructions = {
+    professional: "Ton professionnel et expert. Inspirant confiance et crÃ©dibilitÃ©. Vocabulaire prÃ©cis, structure claire.",
+    inspiring: "Ton inspirant et motivant. Storytelling Ã©motionnel, exemples qui font rÃ©flÃ©chir. Donne envie d'agir.",
+    storytelling: "Format storytelling pur. Raconte une histoire (vraie ou rÃ©aliste) avec un arc narratif : situation â tension â rÃ©solution â leÃ§on. Le lecteur doit se sentir transportÃ©.",
+    educational: "Ton Ã©ducatif et pÃ©dagogique. Partage un savoir-faire, une mÃ©thode, des chiffres. Le lecteur doit repartir avec quelque chose de concret et applicable.",
+    casual: "Ton dÃ©contractÃ© et authentique. Comme une conversation entre pros autour d'un cafÃ©. Humour fin bienvenu, proximitÃ©, franc-parler.",
+    engaging: "Ton provocateur (bienveillant) et engageant. Prends position, challenge les idÃ©es reÃ§ues, pose des questions qui font dÃ©bat. Objectif : faire rÃ©agir dans les commentaires.",
+  };
+
+  const categoryContext = {
+    job_offer: "Publication pour promouvoir une offre d'emploi en cours. Objectif : attirer les candidats et encourager le partage.",
+    promo_services: "Promotion des services de Talentys RH. Objectif : dÃ©montrer l'expertise et gÃ©nÃ©rer des leads.",
+    prospection: "Contenu de prospection B2B ciblant les dirigeants et DRH. Objectif : identifier et attirer des clients potentiels.",
+    employer_brand: "Contenu marque employeur. Objectif : aider les entreprises Ã  comprendre l'importance de leur image employeur.",
+    hr_news: "Analyse d'actualitÃ© RH. Objectif : positionner Marco comme expert et gÃ©nÃ©rer du dÃ©bat.",
+    consultant: "Partage de la vie de consultant en recrutement. Objectif : humaniser la marque et crÃ©er de la proximitÃ©.",
+    outremer: "Focus sur l'Ã©conomie et l'emploi en Outre-Mer. Objectif : valoriser les territoires et attirer l'attention.",
+    testimony: "TÃ©moignage ou success story. Objectif : prouver par l'exemple et inspirer confiance.",
+    motivation: "Post motivationnel et inspirant. Objectif : fÃ©dÃ©rer la communautÃ© et gÃ©nÃ©rer de l'engagement Ã©motionnel.",
+    case_study: "Ãtude de cas recrutement. Objectif : dÃ©montrer la mÃ©thode et le ROI concret.",
+  };
+
+  const userPrompt = jobInfo
+    ? `RÃ©dige une publication LinkedIn pour promouvoir cette offre d'emploi :\n- Poste : ${jobInfo.title}\n- Localisation : ${jobInfo.location}\n- DÃ©partement : ${jobInfo.department}\n- Lien : ${jobInfo.url}\n\nTon : ${toneInstructions[tone] || toneInstructions.professional}\n\nContexte catÃ©gorie : ${categoryContext.job_offer}\n\n${includeCTA ? 'Inclus un call-to-action fort en fin de post (pas de lien, invite au DM ou commentaire).' : 'Pas de call-to-action explicite.'}\n${includeHashtags ? 'Termine par 3-5 hashtags stratÃ©giques.' : 'Pas de hashtags.'}`
+    : `RÃ©dige une publication LinkedIn sur le sujet suivant : "${topic}"\n\nTon : ${toneInstructions[tone] || toneInstructions.professional}\n\nContexte catÃ©gorie : ${categoryContext[category] || ''}\n\n${includeCTA ? 'Inclus un call-to-action fort en fin de post (pas de lien, invite au DM ou commentaire).' : 'Pas de call-to-action explicite.'}\n${includeHashtags ? 'Termine par 3-5 hashtags stratÃ©giques.' : 'Pas de hashtags.'}\n\nIMPORTANT : Ãcris UNIQUEMENT le texte du post LinkedIn, rien d'autre. Pas d'introduction, pas d'explication, pas de guillemets autour du post.`;
+
+  try {
+    const response = await axios.post('https://api.anthropic.com/v1/messages', {
+      model: 'claude-opus-4-6',
+      max_tokens: 1500,
+      system: LINKEDIN_EXPERT_PROMPT,
+      messages: [{ role: 'user', content: userPrompt }],
+    }, {
+      headers: {
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      timeout: 30000,
+    });
+
+    const generatedText = response.data.content[0].text.trim();
+
+    // Track activity
+    logActivity(req.user.id, req.user.name, 'generate_post', { category, tone, topic, model: 'claude-opus-4-6', aiGenerated: true });
+
+    res.json({ content: generatedText, model: 'claude-opus-4-6' });
+  } catch (error) {
+    console.error('AI generation error:', error.response?.data || error.message);
+    res.status(500).json({
+      error: 'Erreur de gÃ©nÃ©ration IA',
+      details: error.response?.data?.error?.message || error.message,
+    });
+  }
+});
+
+/* ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+   TEAMTAILOR â Fetch real jobs from career site
+   ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 
 app.get('/api/teamtailor/jobs', async (req, res) => {
   try {
-    // Fetch the Teamtailor jobs feed (JSON API)
+    // Fetch the Teamtailor jobs feed (force no-cache for fresh data)
     const response = await axios.get('https://jobs.talentysrh.com/jobs', {
-      headers: { Accept: 'application/json' },
-      timeout: 10000,
+      headers: {
+        Accept: 'text/html,application/xhtml+xml',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'User-Agent': 'Mozilla/5.0 (compatible; PostFlow/1.0)',
+      },
+      timeout: 15000,
     });
 
     // Teamtailor exposes a JSON-LD or HTML page; let's try to parse the embed API
@@ -816,7 +920,7 @@ app.get('/api/teamtailor/jobs', async (req, res) => {
         jobs = connectResponse.data.map(j => ({
           id: j.id,
           title: j.title,
-          location: j.location || j.city || 'Non précisé',
+          location: j.location || j.city || 'Non prÃ©cisÃ©',
           department: j.department || '',
           url: j.url || `https://jobs.talentysrh.com/jobs/${j.id}`,
           createdAt: j.created_at || j.createdAt,
@@ -835,7 +939,7 @@ app.get('/api/teamtailor/jobs', async (req, res) => {
             jobs = jsonLd.itemListElement.map((item, i) => ({
               id: i + 1,
               title: item.name || item.title,
-              location: item.jobLocation?.address?.addressLocality || 'Non précisé',
+              location: item.jobLocation?.address?.addressLocality || 'Non prÃ©cisÃ©',
               department: item.industry || '',
               url: item.url || '',
             }));
@@ -851,9 +955,10 @@ app.get('/api/teamtailor/jobs', async (req, res) => {
         while ((match = jobRegex.exec(html)) !== null) {
           const rawUrl = match[1];
           const jobId = match[2];
-          const innerText = match[3].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').replace(/&middot;/g, '\u00B7').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n)).replace(/&nbsp;/g, ' ').trim();
+          const innerText = match[3].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').replace(/&middot;/g, 'Â·').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n)).replace(/&nbsp;/g, ' ').trim();
           const url = rawUrl.startsWith('http') ? rawUrl : `https://jobs.talentysrh.com${rawUrl}`;
-          const parts = innerText.split(/\s*·\s*/);
+          // Parse "Title  Department Â· Location" pattern
+          const parts = innerText.split(/\s*Â·\s*/);
           const titlePart = (parts[0] || '').trim();
           const locationPart = (parts[parts.length - 1] || '').trim();
           const deptPart = parts.length > 2 ? parts[1].trim() : (parts.length > 1 ? parts[1].trim() : '');
@@ -862,7 +967,7 @@ app.get('/api/teamtailor/jobs', async (req, res) => {
             jobs.push({
               id: parseInt(jobId),
               title: titlePart,
-              location: parts.length > 1 ? locationPart : 'Non précisé',
+              location: parts.length > 1 ? locationPart : 'Non prÃ©cisÃ©',
               department: parts.length > 2 ? deptPart : (parts.length > 1 ? locationPart : ''),
               url,
             });
@@ -878,9 +983,9 @@ app.get('/api/teamtailor/jobs', async (req, res) => {
   }
 });
 
-/* ════════════════════════════════════════════════════════════════════
+/* ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
    SERVE FRONTEND IN PRODUCTION
-   ════════════════════════════════════════════════════════════════════ */
+   ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(join(__dirname, '..', 'dist')));
@@ -890,8 +995,6 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.listen(PORT, () => {
-  console.log(`\n  🚀 PostFlow API server running on http://localhost:${PORT}`);
-  console.log(`  📡 LinkedIn OAuth:  ${process.env.LINKEDIN_CLIENT_ID ? '✅ Configured' : '⚠️  Missing LINKEDIN_CLIENT_ID'}`);
-  console.log(`  🖼️  Pexels API:     ${process.env.PEXELS_API_KEY ? '✅ Configured' : '⚠️  Missing PEXELS_API_KEY'}`);
-  console.log(`  🌐 Frontend URL:   ${process.env.FRONTEND_URL || 'http://localhost:5173'}\n`);
-});
+  console.log(`\n  ð PostFlow API server running on http://localhost:${PORT}`);
+  console.log(`  ð¡ LinkedIn OAuth:  ${process.env.LINKEDIN_CLIENT_ID ? 'â Configured' : 'â ï¸  Missing LINKEDIN_CLIENT_ID'}`);
+  console.log(`  ð¼ï¸  Pexels API:     ${process.env.PEXELS_API_KEY ? 'â Configured' : 'â ï¸  M
