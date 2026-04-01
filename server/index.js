@@ -257,6 +257,41 @@ app.post('/api/admin/users/:id/resend-invite', requireAuth, requireAdmin, async 
 });
 
 /* ════════════════════════════════════════════════════════════════════
+   ADMIN — RESET DATA (clean slate)
+   ════════════════════════════════════════════════════════════════════ */
+app.post('/api/admin/reset', requireAuth, requireAdmin, (req, res) => {
+  const { resetUsers, resetActivity } = req.body;
+
+  if (resetActivity !== false) {
+    saveActivity([]);
+  }
+
+  if (resetUsers !== false) {
+    const currentAdmin = usersDB.find(u => u.id === req.user?.id);
+    const freshAdmin = {
+      id: 'admin-001',
+      email: currentAdmin?.email || 'marc.beauzile@mobilite-rh-outremer.net',
+      name: currentAdmin?.name || 'Marco B.',
+      role: 'admin',
+      password: currentAdmin?.password || hashPassword('admin2026'),
+      status: 'active',
+      createdAt: new Date().toISOString(),
+    };
+    usersDB = [freshAdmin];
+    saveUsers(usersDB);
+  }
+
+  tokenStore.clear();
+  const currentSessionId = req.cookies?.postflow_session;
+  for (const [sid] of sessionStore) {
+    if (sid !== currentSessionId) sessionStore.delete(sid);
+  }
+
+  console.log('Database reset performed by admin');
+  res.json({ success: true, message: 'Données réinitialisées avec succès' });
+});
+
+/* ════════════════════════════════════════════════════════════════════
    ADMIN — ACTIVITY TRACKING API
    ════════════════════════════════════════════════════════════════════ */
 app.get('/api/admin/activity', requireAuth, requireAdmin, (req, res) => {
