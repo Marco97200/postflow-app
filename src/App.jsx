@@ -901,7 +901,7 @@ function AppMain({ authUser, onLogout }) {
   /* ── ACTIONS ── */
   const handleGenerate = async () => {
     // Validate inputs
-    if (gen.category !== "job_offer" && !gen.topic.trim()) {
+    if (false) {
       showNotification("Saisissez un sujet", "warning");
       return;
     }
