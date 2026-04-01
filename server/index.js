@@ -20,7 +20,7 @@ app.use(cors({
   origin: IS_PROD ? true : (process.env.FRONTEND_URL || 'http://localhost:5173'),
   credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
 // Trust proxy in production (Render.com uses reverse proxy)
@@ -621,6 +621,62 @@ app.get('/api/linkedin/profile', (req, res) => {
 });
 
 // Publish a post to LinkedIn
+// Helper: upload image to LinkedIn and return asset URN
+async function uploadImageToLinkedIn(access_token, personId, imageBuffer) {
+  // Step 1: Register upload
+  const registerBody = {
+    registerUploadRequest: {
+      recipes: ['urn:li:digitalmediaRecipe:feedshare-image'],
+      owner: `urn:li:person:${personId}`,
+      serviceRelationships: [{
+        relationshipType: 'OWNER',
+        identifier: 'urn:li:userGeneratedContent',
+      }],
+    },
+  };
+
+  const registerRes = await axios.post(
+    'https://api.linkedin.com/v2/assets?action=registerUpload',
+    registerBody,
+    {
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+
+  const uploadUrl = registerRes.data.value.uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl;
+  const asset = registerRes.data.value.asset;
+
+  // Step 2: Upload binary image
+  await axios.put(uploadUrl, imageBuffer, {
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+      'Content-Type': 'application/octet-stream',
+      'Content-Length': imageBuffer.length,
+    },
+    maxContentLength: 10 * 1024 * 1024,
+    maxBodyLength: 10 * 1024 * 1024,
+  });
+
+  return asset;
+}
+
+// Helper: get image buffer from URL or base64 data URI
+async function getImageBuffer(imageUrl) {
+  if (imageUrl.startsWith('data:')) {
+    const base64Data = imageUrl.split(',')[1];
+    return Buffer.from(base64Data, 'base64');
+  } else {
+    const response = await axios.get(imageUrl, {
+      responseType: 'arraybuffer',
+      timeout: 15000,
+    });
+    return Buffer.from(response.data);
+  }
+}
+
 app.post('/api/linkedin/publish', async (req, res) => {
   const userId = req.cookies.linkedin_user;
   if (!userId || !tokenStore.has(userId)) {
@@ -631,20 +687,35 @@ app.post('/api/linkedin/publish', async (req, res) => {
   const { text, imageUrl } = req.body;
 
   try {
+    let shareMediaCategory = 'NONE';
+    let media = undefined;
+
+    if (imageUrl) {
+      try {
+        console.log('Uploading image to LinkedIn...');
+        const imageBuffer = await getImageBuffer(imageUrl);
+        const assetUrn = await uploadImageToLinkedIn(access_token, profile.id, imageBuffer);
+        console.log('Image uploaded, asset:', assetUrn);
+
+        shareMediaCategory = 'IMAGE';
+        media = [{
+          status: 'READY',
+          media: assetUrn,
+          description: { text: 'Publication PostFlow by Talentys RH' },
+        }];
+      } catch (imgErr) {
+        console.error('Image upload failed, publishing without image:', imgErr.message);
+      }
+    }
+
     const postBody = {
       author: `urn:li:person:${profile.id}`,
       lifecycleState: 'PUBLISHED',
       specificContent: {
         'com.linkedin.ugc.ShareContent': {
           shareCommentary: { text },
-          shareMediaCategory: imageUrl ? 'ARTICLE' : 'NONE',
-          ...(imageUrl && {
-            media: [{
-              status: 'READY',
-              originalUrl: imageUrl,
-              description: { text: 'Publication PostFlow by Talentys RH' },
-            }],
-          }),
+          shareMediaCategory,
+          ...(media && { media }),
         },
       },
       visibility: {
@@ -660,10 +731,9 @@ app.post('/api/linkedin/publish', async (req, res) => {
       },
     });
 
-    // Track activity — find auth user from session
     const sessId = req.cookies.postflow_session;
     const sessUser = sessId && sessionStore.has(sessId) ? sessionStore.get(sessId) : null;
-    logActivity(sessUser?.id || userId, sessUser?.name || 'Unknown', 'publish_linkedin', { textLength: text?.length, hasImage: !!imageUrl });
+    logActivity(sessUser?.id || userId, sessUser?.name || 'Unknown', 'publish_linkedin', { textLength: text?.length, hasImage: !!imageUrl, imageUploaded: shareMediaCategory === 'IMAGE' });
 
     res.json({ success: true, postId: response.data.id });
   } catch (error) {
