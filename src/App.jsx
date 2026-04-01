@@ -322,17 +322,7 @@ const PEXELS_RESULTS = {
 };
 
 /* ═══ PERFORMANCE DATA (simulated) ═══ */
-const PERF_DATA = [
-  { id: 1, date: "2026-03-10", title: "🚀 Recrutement Directeur Commercial", impressions: 2847, likes: 68, comments: 12, shares: 8, ctr: 4.2, category: "job_offer" },
-  { id: 2, date: "2026-03-12", title: "🎯 Nos services Talentys RH", impressions: 3890, likes: 95, comments: 18, shares: 27, ctr: 5.8, category: "promo_services" },
-  { id: 3, date: "2026-03-14", title: "💡 Conseil RH : Soft Skills", impressions: 4123, likes: 112, comments: 34, shares: 21, ctr: 6.1, category: "hr_news" },
-  { id: 4, date: "2026-03-16", title: "👔 Coût d'un recrutement raté", impressions: 6210, likes: 203, comments: 56, shares: 42, ctr: 9.3, category: "prospection" },
-  { id: 5, date: "2026-03-18", title: "🏢 Marque employeur : 5 leviers", impressions: 3456, likes: 89, comments: 22, shares: 15, ctr: 5.2, category: "employer_brand" },
-  { id: 6, date: "2026-03-20", title: "🌴 Économie Guadeloupe 2026", impressions: 1856, likes: 45, comments: 8, shares: 5, ctr: 3.4, category: "outremer" },
-  { id: 7, date: "2026-03-22", title: "🌟 Success Story : Julie", impressions: 5234, likes: 187, comments: 42, shares: 35, ctr: 8.7, category: "testimony" },
-  { id: 8, date: "2026-03-24", title: "📋 Cas client — DAF Martinique", impressions: 4567, likes: 134, comments: 31, shares: 28, ctr: 7.1, category: "case_study" },
-  { id: 9, date: "2026-03-26", title: "🔥 Erreur n°1 en recrutement", impressions: 3567, likes: 94, comments: 28, shares: 16, ctr: 5.5, category: "hr_news" },
-];
+const PERF_DATA = [];
 
 /* ════════════════════════════════════════════════════════════════════
    THEMES
@@ -650,16 +640,7 @@ function AppMain({ authUser, onLogout }) {
     try { localStorage?.setItem?.("postflow-theme", next); } catch(e) {}
   };
   const [tab, setTab] = useState("dashboard");
-  const [scheduledPosts, setScheduledPosts] = useState([
-    { id: 1, content: "🚀 Talentys RH recrute pour un poste de Directeur Commercial en Martinique !\n\nNotre client, leader dans son secteur, recherche un profil senior.\n\n→ 10+ ans d'expérience\n→ Leadership éprouvé\n→ Connaissance du marché local\n\n📩 Contactez-moi !\n\n#Recrutement #Martinique #Emploi", date: "2026-03-28", time: "09:00", category: "job_offer", status: "scheduled", author: "Marco B.", imageUrl: "" },
-    { id: 2, content: "💡 Le conseil RH de la semaine :\n\nArrêtez de recruter uniquement sur le CV.\n\nLes soft skills font la différence :\n\n1️⃣ Adaptabilité\n2️⃣ Communication\n3️⃣ Esprit d'équipe\n\n📌 Enregistrez ce post !\n\n#RH #ConseilRH #Recrutement", date: "2026-03-30", time: "12:00", category: "hr_news", status: "scheduled", author: "Marco B.", imageUrl: "" },
-    { id: 3, content: "🌟 Success Story !\n\nIl y a 3 mois, Julie cherchait un nouveau challenge en Guadeloupe.\n\nAujourd'hui, elle est Responsable RH chez un grand groupe local !\n\n💪 La clé : un accompagnement personnalisé.\n\n#Réussite #Talents #Outremer", date: "2026-04-02", time: "08:30", category: "testimony", status: "scheduled", author: "Marco B.", imageUrl: "" },
-    { id: 4, content: "🌴 L'économie guadeloupéenne en 2026 : les secteurs qui recrutent !\n\n📊 +12% de créations de postes dans le BTP\n📈 Le tourisme en plein boom\n🎯 La tech locale qui émerge\n\nLes opportunités sont là !\n\n#Guadeloupe #Emploi #Outremer", date: "2026-04-05", time: "10:00", category: "outremer", status: "scheduled", author: "Marco B.", imageUrl: "" },
-    { id: 5, content: "☕ Ma journée type de consultant en recrutement :\n\n8h — Café + revue des candidatures\n9h — Entretien candidat\n10h30 — Brief client\n12h — Déjeuner réseau\n14h — Sourcing intensif\n16h — Suivi missions\n17h — Veille marché\n\nEt vous, à quoi ressemble votre journée ? 😄\n\n#ConsultantRH #VieDeRecruteur", date: "2026-04-07", time: "08:00", category: "consultant", status: "scheduled", author: "Marco B.", imageUrl: "" },
-    { id: 6, content: "❌ Le problème :\nVotre dernier recrutement a pris 4 mois. Le candidat est parti au bout de 3.\n\n✅ La solution Talentys RH :\n\n📋 Diagnostic du besoin réel\n🔎 Sourcing ciblé via notre réseau local\n🎯 Shortlist qualifiée en 3 semaines max\n🤝 Accompagnement jusqu'à la fin de période d'essai\n\nRésultat ? 92% de nos placements encore en poste après 1 an.\n\n📩 Discutons de votre prochain recrutement.\n\n#Recrutement #RPO #TalentysRH #Outremer", date: "2026-03-29", time: "10:00", category: "promo_services", status: "scheduled", author: "Marco B.", imageUrl: "" },
-    { id: 7, content: "👔 Dirigeant en Outre-Mer, cette question est pour vous :\n\nCombien vous coûte un recrutement raté ?\n\n💸 Coût direct : 30 000€ à 150 000€\n⏳ Coût indirect : temps perdu, démotivation\n😰 Coût caché : turn-over en chaîne\n\nUn cabinet spécialisé réduit ce risque de 70%.\n\n📩 Premier échange offert — écrivez-moi en DM\n\n#Dirigeant #Recrutement #ROI #TalentysRH", date: "2026-04-03", time: "09:00", category: "prospection", status: "scheduled", author: "Marco B.", imageUrl: "" },
-    { id: 8, content: "📋 ÉTUDE DE CAS — Recrutement DAF en Martinique\n\n🏢 Client : Groupe BTP, 200 salariés\n⏱️ Délai : 18 jours\n✅ Candidat toujours en poste 10 mois après\n\nNotre approche :\n1️⃣ Audit du besoin avec le DG\n2️⃣ Sourcing ciblé réseau local + national\n3️⃣ Shortlist de 4 profils qualifiés\n4️⃣ Accompagnement intégration 3 mois\n\nROI estimé : 8× l'investissement initial\n\n📞 Un poste stratégique à pourvoir ?\n\n#CasClient #Recrutement #TalentysRH #Martinique", date: "2026-04-09", time: "08:30", category: "case_study", status: "scheduled", author: "Marco B.", imageUrl: "" },
-  ]);
+  const [scheduledPosts, setScheduledPosts] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(new Date(2026, 2));
   const [gen, setGen] = useState({ topic: "", tone: "professional", category: "job_offer", includeHashtags: true, includeCTA: true, content: "", isGenerating: false, selectedImage: null, selectedJob: null });
   const [talentysJobs, setTalentysJobs] = useState(TALENTYS_JOBS_CACHE);
