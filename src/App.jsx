@@ -10,6 +10,7 @@ import {
   BarChart3, Link2, Unlink, Camera, MapPin, Flag, Trophy, Flame,
   ChevronDown, ExternalLink, Play, Pause, AlertCircle, CheckCircle2,
   ImageIcon, Loader, ArrowUpRight, Activity, Linkedin
+, RotateCcw, AlertTriangle
 } from "lucide-react";
 
 /* ════════════════════════════════════════════════════════════════════
@@ -1506,6 +1507,24 @@ function AppMain({ authUser, onLogout }) {
     const [activityLog, setActivityLog] = useState([]);
     const [selectedUserId, setSelectedUserId] = useState(null);
     const [statsLoading, setStatsLoading] = useState(false);
+    const [resetConfirm, setResetConfirm] = useState(false);
+    const [resetting, setResetting] = useState(false);
+
+
+    const handleReset = async () => {
+      setResetting(true);
+      try {
+        await API.resetData(true, true);
+        setAdminMsg({ type: "success", text: "Toutes les donnees ont ete reinitialisees avec succes !" });
+        setResetConfirm(false);
+        const u = await API.getUsers();
+        setAdminUsers(u);
+      } catch (e) {
+        setAdminMsg({ type: "error", text: e.message });
+      } finally {
+        setResetting(false);
+      }
+    };
 
     useEffect(() => {
       API.getUsers().then(data => { setUsers(data.users || []); setAdminLoading(false); }).catch(() => setAdminLoading(false));
@@ -1591,7 +1610,7 @@ function AppMain({ authUser, onLogout }) {
 
         {/* Admin Sub-tabs */}
         <div style={{ display: "flex", gap: 4, marginBottom: 20, background: T.bgElevated, padding: 4, borderRadius: 12, width: "fit-content" }}>
-          {[{ id: "users", label: "Utilisateurs", icon: Users }, { id: "activity", label: "Activité", icon: Activity }].map(t => (
+          {[{ id: "users", label: "Utilisateurs", icon: Users }, { id: "activity", label: "Activité", icon: Activity }, { id: "tools", label: "Outils", icon: Settings }].map(t => (
             <button key={t.id} onClick={() => setAdminTab(t.id)} style={{
               display: "flex", alignItems: "center", gap: 7, padding: "9px 18px", borderRadius: 10, border: "none", cursor: "pointer",
               background: adminTab === t.id ? T.accent : "transparent", color: adminTab === t.id ? "#fff" : T.textSecondary,
@@ -1765,7 +1784,48 @@ function AppMain({ authUser, onLogout }) {
               </div>
             </>
           )
+        )}        {adminTab === "tools" && (
+          <div>
+            {adminMsg && (
+              <div style={{ padding: "12px 16px", borderRadius: 12, marginBottom: 16, fontSize: 13, fontWeight: 500, background: adminMsg.type === "success" ? T.greenBg : adminMsg.type === "error" ? T.redBg : T.amberBg, color: adminMsg.type === "success" ? T.green : adminMsg.type === "error" ? T.red : T.amber, border: `1px solid ${adminMsg.type === "success" ? T.green : adminMsg.type === "error" ? T.red : T.amber}20`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                {adminMsg.text}
+                <button onClick={() => setAdminMsg(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 16, padding: "0 4px" }}>&times;</button>
+              </div>
+            )}
+
+            <div style={{ background: T.bgCard, borderRadius: 16, border: `1px solid ${T.border}`, padding: 24 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: "0 0 6px", display: "flex", alignItems: "center", gap: 8 }}>
+                <RotateCcw size={18} color={T.red} /> Reinitialiser les donnees
+              </h3>
+              <p style={{ fontSize: 13, color: T.textSecondary, margin: "0 0 20px", lineHeight: 1.6 }}>
+                Remet la base de donnees a zero : supprime tous les utilisateurs (sauf votre compte admin), efface tout l historique d activite et deconnecte tous les comptes LinkedIn. Utile pour repartir sur une base propre.
+              </p>
+
+              {!resetConfirm ? (
+                <Btn variant="danger" onClick={() => setResetConfirm(true)}>
+                  <RotateCcw size={14} /> Reinitialiser toutes les donnees
+                </Btn>
+              ) : (
+                <div style={{ background: `${T.red}08`, border: `1px solid ${T.red}30`, borderRadius: 12, padding: 20 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                    <AlertTriangle size={20} color={T.red} />
+                    <span style={{ fontSize: 14, fontWeight: 700, color: T.red }}>Confirmer la reinitialisation</span>
+                  </div>
+                  <p style={{ fontSize: 13, color: T.textSecondary, margin: "0 0 16px" }}>
+                    Cette action est irreversible. Toutes les donnees seront supprimees sauf votre compte administrateur.
+                  </p>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <Btn variant="secondary" onClick={() => setResetConfirm(false)}>Annuler</Btn>
+                    <Btn variant="danger" onClick={handleReset} disabled={resetting}>
+                      {resetting ? <><Loader size={14} style={{ animation: "spin 1s linear infinite" }} /> Reinitialisation...</> : <><Trash2 size={14} /> Oui, tout reinitialiser</>}
+                    </Btn>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         )}
+
       </div>
     );
   };
