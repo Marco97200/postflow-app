@@ -39,7 +39,7 @@ export const linkedinDisconnect = async () => {
 
 // ── Pexels ──
 export const searchPexels = async (query, page = 1) => {
-  const res = await fetch(`${API_BASE}/pexels/search?query=${encodeURIComponent(query)}&page=${page}&per_page=12`);
+  const res = await fetch(`${API_BASE}/pexels/search?query=${encodeURIComponent(query)}&page=${page}&per_page=15`);
   if (!res.ok) throw new Error('Erreur Pexels');
   return res.json();
 };
