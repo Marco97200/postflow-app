@@ -709,7 +709,7 @@ function AppMain({ authUser, onLogout }) {
     const n = PERF_DATA.length || 1;
     return {
       avgImpressions: Math.round(PERF_DATA.reduce((a, p) => a + p.impressions, 0) / n),
-      avgEngagement: ((PERF_DATA.reduce((a, p) => a + p.likes + p.comments + p.shares, 0) / PERF_DATA.reduce((a, p) => a + p.impressions, 0)) * 100).toFixed(1),
+      avgEngagement: PERF_DATA.length === 0 ? "0.0" : ((PERF_DATA.reduce((a, p) => a + p.likes + p.comments + p.shares, 0) / (PERF_DATA.reduce((a, p) => a + p.impressions, 0) || 1)) * 100).toFixed(1),
       totalLikes: PERF_DATA.reduce((a, p) => a + p.likes, 0),
       total: PERF_DATA.length,
       bestPost: PERF_DATA.reduce((b, p) => p.impressions > (b?.impressions || 0) ? p : b, null),
