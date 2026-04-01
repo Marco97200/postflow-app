@@ -37,6 +37,21 @@ export const linkedinDisconnect = async () => {
   });
 };
 
+// ── AI Generation ──
+export const generatePost = async (params) => {
+  const res = await fetch(`${API_BASE}/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Erreur de génération');
+  }
+  return res.json();
+};
+
 // ── Pexels ──
 export const searchPexels = async (query, page = 1) => {
   const res = await fetch(`${API_BASE}/pexels/search?query=${encodeURIComponent(query)}&page=${page}&per_page=15`);
