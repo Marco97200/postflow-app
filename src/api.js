@@ -136,6 +136,19 @@ export const resendInvite = async (id) => {
   return data;
 };
 
+// ── Reset ──
+export const resetData = async (resetUsers = true, resetActivity = true) => {
+  const res = await fetch(`${API_BASE}/admin/reset`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ resetUsers, resetActivity }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Erreur reset');
+  return data;
+};
+
 // ── Activity ──
 export const getActivityStats = async () => {
   const res = await fetch(`${API_BASE}/admin/activity/stats`, { credentials: 'include' });
