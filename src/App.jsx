@@ -10,7 +10,8 @@ import {
   BarChart3, Link2, Unlink, Camera, MapPin, Flag, Trophy, Flame,
   ChevronDown, ExternalLink, Play, Pause, AlertCircle, CheckCircle2,
   ImageIcon, Loader, ArrowUpRight, Activity, Linkedin
-, RotateCcw, AlertTriangle
+, RotateCcw, AlertTriangle,
+  Upload, ChevronUp
 } from "lucide-react";
 
 /* ════════════════════════════════════════════════════════════════════
@@ -736,8 +737,12 @@ function AppMain({ authUser, onLogout }) {
   const [linkedinProfile, setLinkedinProfile] = useState({ name: "", picture: "" });
   const [pexelsSearch, setPexelsSearch] = useState("");
   const pexelsInputRef = useRef(null);
+  const fileInputRef = useRef(null);
   const [pexelsResults, setPexelsResults] = useState([]);
   const [pexelsLoading, setPexelsLoading] = useState(false);
+  const [pexelsPage, setPexelsPage] = useState(1);
+  const [pexelsTotalResults, setPexelsTotalResults] = useState(0);
+  const [pexelsLoadingMore, setPexelsLoadingMore] = useState(false);
   const [notif, setNotif] = useState(null);
   const [objectives, setObjectives] = useState({ weeklyTarget: 3, monthlyTarget: 12 });
   const [filterCat, setFilterCat] = useState("all");
@@ -884,25 +889,46 @@ function AppMain({ authUser, onLogout }) {
   const copyText = (t) => { navigator.clipboard?.writeText(t); showNotification("Copié !"); API.trackActivity("copy_post"); };
   const useTemplate = (tpl) => { setGen(s => ({ ...s, content: tpl.content, category: tpl.category })); setTab("generator"); showNotification("Template chargé !"); API.trackActivity("use_template", { template: tpl.title }); };
 
-  const searchPexels = async (query) => {
-    setPexelsLoading(true); setPexelsSearch(query);
+  const searchPexels = async (query, page = 1) => {
+    if (page === 1) { setPexelsLoading(true); } else { setPexelsLoadingMore(true); }
+    setPexelsSearch(query);
     try {
-      const data = await API.searchPexels(query);
+      const data = await API.searchPexels(query, page);
       if (data.photos && data.photos.length > 0) {
-        setPexelsResults(data.photos);
-      } else {
-        // Fallback to built-in SVG images
+        if (page === 1) { setPexelsResults(data.photos); } else { setPexelsResults(prev => [...prev, ...data.photos]); }
+        setPexelsPage(page);
+        setPexelsTotalResults(data.totalResults || 0);
+      } else if (page === 1) {
         setPexelsResults(PEXELS_RESULTS.recrutement.sort(() => Math.random() - 0.5));
+        setPexelsTotalResults(0);
         showNotification("Aucune image trouvée — visuels par défaut", "warning");
       }
-      API.trackActivity("search_pexels", { query });
+      API.trackActivity("search_pexels", { query, page });
     } catch (err) {
       console.error('Pexels search error:', err);
-      setPexelsResults(PEXELS_RESULTS.recrutement.sort(() => Math.random() - 0.5));
-      showNotification("API Pexels indisponible — visuels par défaut", "warning");
+      if (page === 1) {
+        setPexelsResults(PEXELS_RESULTS.recrutement.sort(() => Math.random() - 0.5));
+        showNotification("API Pexels indisponible — visuels par défaut", "warning");
+      }
     } finally {
       setPexelsLoading(false);
+      setPexelsLoadingMore(false);
     }
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { showNotification("Ce fichier n'est pas une image", "error"); return; }
+    if (file.size > 5 * 1024 * 1024) { showNotification("Image trop lourde (max 5 Mo)", "error"); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setGen(s => ({ ...s, selectedImage: { src: ev.target.result, alt: file.name, photographer: "Mon image", isUpload: true } }));
+      showNotification("Image importée !");
+      API.trackActivity("upload_image", { fileName: file.name });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
   const connectLinkedin = async () => {
@@ -1314,12 +1340,14 @@ function AppMain({ authUser, onLogout }) {
               </label>
             ))}
             <Btn variant="secondary" size="sm" onClick={() => { setShowModal("pexels"); if (!pexelsResults.length) searchPexels(gen.topic || "business"); }}><ImageIcon size={12} /> Visuel Pexels</Btn>
+            <Btn variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}><Upload size={12} /> Mon image</Btn>
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} style={{ display: "none" }} />
           </div>
           {gen.selectedImage && (
             <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", border: `1px solid ${T.border}` }}>
               <img src={gen.selectedImage.src} alt={gen.selectedImage.alt} style={{ width: "100%", height: 140, objectFit: "cover" }} />
               <button onClick={() => setGen(s => ({ ...s, selectedImage: null }))} style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.7)", border: "none", borderRadius: "50%", width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" }}><X size={13} /></button>
-              <div style={{ position: "absolute", bottom: 6, left: 6, fontSize: 10, color: "#fff", background: "rgba(0,0,0,0.6)", padding: "2px 7px", borderRadius: 6 }}>📷 {gen.selectedImage.photographer} via Pexels</div>
+              <div style={{ position: "absolute", bottom: 6, left: 6, fontSize: 10, color: "#fff", background: "rgba(0,0,0,0.6)", padding: "2px 7px", borderRadius: 6 }}>{gen.selectedImage.isUpload ? "📎 Mon image" : `📷 ${gen.selectedImage.photographer} via Pexels`}</div>
             </div>
           )}
           <button onClick={handleGenerate} disabled={gen.isGenerating} style={{
@@ -1664,6 +1692,8 @@ function AppMain({ authUser, onLogout }) {
       use_template: { label: "Utilisation template", icon: "📋", color: T.cyan },
       search_pexels: { label: "Recherche image", icon: "🖼️", color: "#05A081" },
       copy_post: { label: "Copie de post", icon: "📄", color: T.textSecondary },
+      upload_image: { label: "Import image", icon: "📎", color: "#8b5cf6" },
+      publish_linkedin: { label: "Publication LinkedIn", icon: "🚀", color: "#0A66C2" },
       create_user: { label: "Création utilisateur", icon: "👤", color: T.accent },
     };
 
@@ -2015,28 +2045,53 @@ function AppMain({ authUser, onLogout }) {
         </Modal>
       )}
       {showModal === "pexels" && (
-        <Modal theme={T} title="Visuel Pexels" onClose={() => setShowModal(null)}>
-          <div style={{ display: "flex", gap: 7, marginBottom: 14 }}>
+        <Modal theme={T} title="Bibliothèque d'images" onClose={() => setShowModal(null)}>
+          <div style={{ display: "flex", gap: 7, marginBottom: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, flex: 1, padding: "8px 11px", background: T.bgInput, borderRadius: 10, border: `1px solid ${T.border}` }}>
               <Search size={14} color={T.textMuted} />
-              <input ref={pexelsInputRef} defaultValue={pexelsSearch} onKeyDown={e => e.key === "Enter" && searchPexels(e.target.value)} placeholder="Rechercher..." style={{ background: "none", border: "none", color: T.text, fontSize: 13, outline: "none", width: "100%", fontFamily: "Inter, sans-serif" }} />
+              <input ref={pexelsInputRef} defaultValue={pexelsSearch} onKeyDown={e => e.key === "Enter" && searchPexels(e.target.value)} placeholder="Rechercher des photos..." style={{ background: "none", border: "none", color: T.text, fontSize: 13, outline: "none", width: "100%", fontFamily: "Inter, sans-serif" }} />
             </div>
             <Btn size="sm" onClick={() => searchPexels(pexelsInputRef.current?.value || pexelsSearch)}><Search size={13} /></Btn>
+          </div>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 12 }}>
+            {["recrutement", "bureau", "équipe", "Outre-Mer tropical", "leadership", "entretien", "entreprise", "succès", "innovation", "diversité"].map(tag => (
+              <button key={tag} onClick={() => { if (pexelsInputRef.current) pexelsInputRef.current.value = tag; searchPexels(tag); }}
+                style={{ padding: "4px 10px", borderRadius: 20, border: `1px solid ${pexelsSearch === tag ? T.accent + "60" : T.border}`, background: pexelsSearch === tag ? T.accentBg : "transparent", color: pexelsSearch === tag ? T.accentLight : T.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "Inter, sans-serif", fontWeight: 500, transition: "all 0.15s" }}>
+                {tag}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <button onClick={() => fileInputRef.current?.click()} style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, border: `1px dashed ${T.border}`, background: "transparent", color: T.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "Inter, sans-serif", fontWeight: 600 }}>
+              <Upload size={12} /> Importer mon image
+            </button>
+            {pexelsTotalResults > 0 && <span style={{ fontSize: 11, color: T.textMuted }}>{pexelsTotalResults.toLocaleString()} résultats</span>}
           </div>
           {pexelsLoading ? (
             <div style={{ textAlign: "center", padding: 24 }}><Loader size={22} color={T.accent} style={{ animation: "spin 1s linear infinite" }} /><p style={{ color: T.textMuted, fontSize: 12, marginTop: 8 }}>Recherche...</p></div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 7 }}>
-              {pexelsResults.map(img => (
-                <div key={img.id} onClick={() => { setGen(s => ({ ...s, selectedImage: img })); setShowModal(null); showNotification("Image sélectionnée !"); }}
-                  style={{ borderRadius: 10, overflow: "hidden", cursor: "pointer", position: "relative", aspectRatio: "4/3" }}>
-                  <img src={img.src} alt={img.alt} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "3px 5px", background: "rgba(0,0,0,0.7)", fontSize: 9, color: "#fff" }}>📷 {img.photographer}</div>
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 7, maxHeight: 400, overflowY: "auto", paddingRight: 4 }}>
+                {pexelsResults.map(img => (
+                  <div key={img.id} onClick={() => { setGen(s => ({ ...s, selectedImage: img })); setShowModal(null); showNotification("Image sélectionnée !"); }}
+                    style={{ borderRadius: 10, overflow: "hidden", cursor: "pointer", position: "relative", aspectRatio: "4/3", transition: "transform 0.15s, box-shadow 0.15s" }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.03)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "none"; }}>
+                    <img src={img.src} alt={img.alt} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "3px 5px", background: "rgba(0,0,0,0.7)", fontSize: 9, color: "#fff" }}>📷 {img.photographer}</div>
+                  </div>
+                ))}
+              </div>
+              {pexelsResults.length > 0 && pexelsTotalResults > pexelsResults.length && (
+                <div style={{ textAlign: "center", marginTop: 12 }}>
+                  <Btn variant="secondary" size="sm" onClick={() => searchPexels(pexelsSearch, pexelsPage + 1)} disabled={pexelsLoadingMore}>
+                    {pexelsLoadingMore ? <><Loader size={12} style={{ animation: "spin 1s linear infinite" }} /> Chargement...</> : <><Plus size={12} /> Voir plus d'images ({pexelsResults.length}/{pexelsTotalResults > 999 ? "999+" : pexelsTotalResults})</>}
+                  </Btn>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
-          <p style={{ fontSize: 10, color: T.textMuted, marginTop: 10, textAlign: "center" }}>Photos par <a href="https://www.pexels.com" target="_blank" rel="noreferrer" style={{ color: T.accent }}>Pexels</a></p>
+          <p style={{ fontSize: 10, color: T.textMuted, marginTop: 10, textAlign: "center" }}>Photos libres de droits par <a href="https://www.pexels.com" target="_blank" rel="noreferrer" style={{ color: T.accent }}>Pexels</a></p>
         </Modal>
       )}
       {showModal === "template" && modalData && (
