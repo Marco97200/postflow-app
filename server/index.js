@@ -339,7 +339,7 @@ app.get('/api/admin/activity/stats', requireAuth, requireAdmin, (req, res) => {
 // Also track post generation and scheduling from frontend
 app.post('/api/activity/track', requireAuth, (req, res) => {
   const { action, details } = req.body;
-  const allowed = ['generate_post', 'schedule_post', 'use_template', 'search_pexels', 'copy_post'];
+  const allowed = ['generate_post', 'schedule_post', 'use_template', 'search_pexels', 'copy_post', 'upload_image', 'publish_linkedin'];
   if (!allowed.includes(action)) return res.status(400).json({ error: 'Action non autorisée' });
   logActivity(req.user.id, req.user.name, action, details || {});
   res.json({ success: true });
@@ -781,7 +781,7 @@ app.get('/api/teamtailor/jobs', async (req, res) => {
         while ((match = jobRegex.exec(html)) !== null) {
           const rawUrl = match[1];
           const jobId = match[2];
-          const innerText = match[3].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+          const innerText = match[3].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').replace(/&middot;/g, '\u00B7').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n)).replace(/&nbsp;/g, ' ').trim();
           const url = rawUrl.startsWith('http') ? rawUrl : `https://jobs.talentysrh.com${rawUrl}`;
           const parts = innerText.split(/\s*·\s*/);
           const titlePart = (parts[0] || '').trim();
