@@ -773,21 +773,27 @@ app.get('/api/teamtailor/jobs', async (req, res) => {
         } catch {}
       }
 
-      // Try parsing job links from HTML
+      // Try parsing job links from HTML (absolute or relative URLs)
       if (jobs.length === 0) {
-        const jobRegex = /href="(\/jobs\/[^"]+)"[^>]*>([^<]+)/g;
+        const jobRegex = /href="((?:https?:\/\/jobs\.talentysrh\.com)?\/jobs\/(\d+)-[^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
         let match;
         const seen = new Set();
         while ((match = jobRegex.exec(html)) !== null) {
-          const url = `https://jobs.talentysrh.com${match[1]}`;
-          const title = match[2].trim();
-          if (!seen.has(title) && title.length > 3) {
-            seen.add(title);
+          const rawUrl = match[1];
+          const jobId = match[2];
+          const innerText = match[3].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+          const url = rawUrl.startsWith('http') ? rawUrl : `https://jobs.talentysrh.com${rawUrl}`;
+          const parts = innerText.split(/\s*·\s*/);
+          const titlePart = (parts[0] || '').trim();
+          const locationPart = (parts[parts.length - 1] || '').trim();
+          const deptPart = parts.length > 2 ? parts[1].trim() : (parts.length > 1 ? parts[1].trim() : '');
+          if (!seen.has(jobId) && titlePart.length > 3) {
+            seen.add(jobId);
             jobs.push({
-              id: jobs.length + 1,
-              title,
-              location: 'Non précisé',
-              department: '',
+              id: parseInt(jobId),
+              title: titlePart,
+              location: parts.length > 1 ? locationPart : 'Non précisé',
+              department: parts.length > 2 ? deptPart : (parts.length > 1 ? locationPart : ''),
               url,
             });
           }
