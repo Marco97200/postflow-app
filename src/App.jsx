@@ -324,6 +324,89 @@ const PEXELS_RESULTS = {
 /* ═══ PERFORMANCE DATA (simulated) ═══ */
 const PERF_DATA = [];
 
+/* ═══ SUGGESTION TOPICS BANK ═══ */
+const SUGGESTION_TOPICS = {
+  job_offer: [
+    { title: "Offre d'emploi attractive", hint: "Publiez une offre en cours — format accroche + 3 points forts + CTA" },
+    { title: "Recherche profil spécifique", hint: "Mettez en avant un talent rare recherché pour votre client" },
+    { title: "Poste ouvert en urgence", hint: "Urgence = engagement — signalez un besoin immédiat" },
+  ],
+  promo_services: [
+    { title: "Pourquoi externaliser son recrutement", hint: "Éduquez sur le RPO et le gain de temps vs coût d'un recrutement raté" },
+    { title: "Chiffres clés Talentys RH", hint: "Partagez vos résultats : taux de rétention, délais, placements" },
+    { title: "Problème / Solution recrutement", hint: "Format avant/après : le recrutement seul vs avec Talentys" },
+  ],
+  prospection: [
+    { title: "Combien coûte un recrutement raté ?", hint: "Interpellez les dirigeants avec des chiffres concrets (30-150k€)" },
+    { title: "5 erreurs de recrutement en Outre-Mer", hint: "Conseils d'expert qui positionnent Talentys comme solution" },
+    { title: "Audit RH gratuit", hint: "Offre découverte pour générer des leads qualifiés" },
+  ],
+  employer_brand: [
+    { title: "Marque employeur en Outre-Mer", hint: "5 leviers sous-estimés pour attirer les talents locaux" },
+    { title: "Erreurs qui font fuir les candidats", hint: "Process trop long, annonce générique, pas de présence LinkedIn" },
+    { title: "Onboarding réussi en Outre-Mer", hint: "Les 90 premiers jours qui font tout pour la rétention" },
+  ],
+  hr_news: [
+    { title: "Tendance RH de la semaine", hint: "IA, télétravail, Gen Z — analysez l'impact pour l'Outre-Mer" },
+    { title: "Conseil RH actionnable", hint: "3 actions concrètes sur un sujet RH précis" },
+    { title: "Chiffres du marché de l'emploi", hint: "Stats récentes + votre analyse terrain" },
+  ],
+  consultant: [
+    { title: "Coulisses du métier de recruteur", hint: "Une semaine type, un moment marquant, une anecdote" },
+    { title: "Ce que j'ai appris cette semaine", hint: "Leçon de terrain, partage authentique" },
+    { title: "La réalité du recrutement en Outre-Mer", hint: "Ce que les gens ne voient pas derrière un placement réussi" },
+  ],
+  outremer: [
+    { title: "Actualité économique d'un territoire", hint: "Martinique, Guadeloupe, Guyane — fait marquant + impact emploi" },
+    { title: "Mobilité professionnelle DOM", hint: "Conseils pour ceux qui veulent travailler en Outre-Mer" },
+    { title: "Secteurs qui recrutent localement", hint: "BTP, santé, tech, tourisme — focus territoire" },
+  ],
+  testimony: [
+    { title: "Success story candidat", hint: "Parcours d'un candidat placé : avant / pendant / après" },
+    { title: "Retour client satisfait", hint: "Citation + contexte + résultat concret" },
+    { title: "Mobilité réussie", hint: "Histoire de quelqu'un qui a changé de territoire avec succès" },
+  ],
+  motivation: [
+    { title: "Leçon d'entrepreneuriat", hint: "Ce que diriger un cabinet en Outre-Mer vous a appris" },
+    { title: "Citation + réflexion personnelle", hint: "Une phrase qui résonne avec votre quotidien de recruteur" },
+    { title: "Pourquoi j'aime ce métier", hint: "Post authentique et inspirant sur votre vocation" },
+  ],
+  case_study: [
+    { title: "Étude de cas recrutement", hint: "Contexte → Approche → Résultat — avec métriques" },
+    { title: "ROI d'un recrutement réussi", hint: "Chiffrez l'impact business d'un bon placement" },
+    { title: "Mission complexe résolue", hint: "Le recrutement le plus difficile et comment vous l'avez géré" },
+  ],
+};
+
+const BEST_DAYS = [2, 3, 4];
+const POSTS_PER_WEEK = 3;
+
+const getSuggestions = (scheduledPosts, contentMix, now) => {
+  const upcoming = [];
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  for (let i = 0; i <= 14 && upcoming.length < 6; i++) {
+    const d = new Date(today); d.setDate(today.getDate() + i);
+    const dow = d.getDay();
+    if (!BEST_DAYS.includes(dow)) continue;
+    const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const hasPost = scheduledPosts.some(p => p.date === ds);
+    upcoming.push({ date: d, dateStr: ds, dayName: ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"][dow], hasPost });
+  }
+  const ranked = [...contentMix].sort((a, b) => (b.target - b.percent) - (a.target - a.percent));
+  const suggestions = [];
+  let catIdx = 0;
+  for (const slot of upcoming) {
+    if (slot.hasPost) continue;
+    const cat = ranked[catIdx % ranked.length];
+    const topics = SUGGESTION_TOPICS[cat.id] || [];
+    const weekNum = Math.floor((slot.date.getTime() - today.getTime()) / (7 * 86400000));
+    const topic = topics.length > 0 ? topics[(catIdx + weekNum) % topics.length] : { title: cat.label, hint: "" };
+    suggestions.push({ date: slot.date, dateStr: slot.dateStr, dayName: slot.dayName, category: cat, topic, time: "09:00" });
+    catIdx++;
+  }
+  return suggestions;
+};
+
 /* ════════════════════════════════════════════════════════════════════
    THEMES
    ════════════════════════════════════════════════════════════════════ */
@@ -705,6 +788,8 @@ function AppMain({ authUser, onLogout }) {
     return ch;
   }, [contentMix, weekProgress, thisWeekPosts]);
 
+  const smartSuggestions = useMemo(() => getSuggestions(scheduledPosts, contentMix, now), [scheduledPosts, contentMix]);
+
   const perfStats = useMemo(() => {
     const n = PERF_DATA.length || 1;
     return {
@@ -1031,7 +1116,47 @@ function AppMain({ authUser, onLogout }) {
         </div>
       </div>
 
-      {/* Upcoming */}
+      {/* Smart Suggestions */}
+      {smartSuggestions.length > 0 && (
+        <div style={{ background: T.bgCard, borderRadius: 16, border: `1px solid ${T.border}`, padding: 22, marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: T.text, display: "flex", alignItems: "center", gap: 8, margin: 0 }}><Lightbulb size={16} color={T.amber} /> Suggestions de publications</h3>
+            <span style={{ fontSize: 11, color: T.textMuted, background: T.bgElevated, padding: "4px 10px", borderRadius: 20, fontWeight: 500 }}>Basé sur votre mix & historique</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {smartSuggestions.slice(0, 4).map((s, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 12, background: `${s.category.color}06`, border: `1px solid ${s.category.color}18`, transition: "all 0.2s" }}>
+                <div style={{ minWidth: 54, textAlign: "center" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>{s.dayName}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: s.category.color, lineHeight: 1.2 }}>{s.date.getDate()}</div>
+                  <div style={{ fontSize: 10, color: T.textMuted }}>{MONTHS_FR[s.date.getMonth()].slice(0, 4)}.</div>
+                </div>
+                <div style={{ width: 1, height: 40, background: `${s.category.color}25`, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                    <s.category.icon size={13} color={s.category.color} />
+                    <span style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{s.topic.title}</span>
+                    <span style={{ fontSize: 9, fontWeight: 600, color: s.category.color, background: `${s.category.color}15`, padding: "2px 7px", borderRadius: 8 }}>{s.category.label}</span>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: T.textSecondary, lineHeight: 1.4 }}>{s.topic.hint}</div>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => { setGen(g => ({ ...g, category: s.category.id, topic: s.topic.title })); setTab("generator"); }} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8, border: `1px solid ${s.category.color}30`, background: `${s.category.color}10`, color: s.category.color, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Inter, sans-serif", transition: "all 0.2s" }} title="Créer ce post">
+                    <Sparkles size={12} /> Créer
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {smartSuggestions.length > 4 && (
+            <div style={{ textAlign: "center", marginTop: 10 }}>
+              <span style={{ fontSize: 11, color: T.textMuted }}>+ {smartSuggestions.length - 4} autres suggestions disponibles</span>
+            </div>
+          )}
+        </div>
+      )}
+
+            {/* Upcoming */}
       <div style={{ background: T.bgCard, borderRadius: 16, border: `1px solid ${T.border}`, overflow: "hidden" }}>
         <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h3 style={{ fontSize: 14, fontWeight: 700, color: T.text, margin: 0 }}>Prochaines publications</h3>
