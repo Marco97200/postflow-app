@@ -323,7 +323,17 @@ const PEXELS_RESULTS = {
 };
 
 /* ═══ PERFORMANCE DATA (simulated) ═══ */
-const PERF_DATA = [];
+const PERF_DATA = [
+    { day: "Lun", impressions: 1250, engagement: 4.2, clicks: 52 },
+    { day: "Mar", impressions: 1480, engagement: 5.1, clicks: 75 },
+    { day: "Mer", impressions: 980, engagement: 3.8, clicks: 37 },
+    { day: "Jeu", impressions: 2100, engagement: 6.3, clicks: 132 },
+    { day: "Ven", impressions: 1750, engagement: 5.7, clicks: 99 },
+    { day: "Sam", impressions: 620, engagement: 2.9, clicks: 18 },
+    { day: "Dim", impressions: 430, engagement: 2.1, clicks: 9 },
+    { day: "Lun", impressions: 1580, engagement: 4.8, clicks: 63 },
+    { day: "Mar", impressions: 1920, engagement: 5.5, clicks: 108 },
+  ];
 
 /* ═══ SUGGESTION TOPICS BANK ═══ */
 const SUGGESTION_TOPICS = {
@@ -724,7 +734,89 @@ function AppMain({ authUser, onLogout }) {
     try { localStorage?.setItem?.("postflow-theme", next); } catch(e) {}
   };
   const [tab, setTab] = useState("dashboard");
-  const [scheduledPosts, setScheduledPosts] = useState([]);
+  const [scheduledPosts, setScheduledPosts] = useState([
+
+        {
+            "id": 1,
+            "content": "🚀 Talentys RH recrute pour un poste de Directeur Commercial en Martinique !\n\nNotre client, leader dans son secteur, recherche un profil senior.\n\n→ 10+ ans d’expérience\n→ Leadership éprouvé\n→ Connaissance du marché local\n\n📩 Contactez-moi !\n\n#Recrutement #Martinique #Emploi",
+            "date": "2026-03-28",
+            "time": "09:00",
+            "category": "job_offer",
+            "status": "scheduled",
+            "author": "Marco B.",
+            "imageUrl": ""
+        },
+        {
+            "id": 2,
+            "content": "💡 Le conseil RH de la semaine :\n\nArrêtez de recruter uniquement sur le CV.\n\nLes soft skills font la différence :\n\n1️⃣ Adaptabilité\n2️⃣ Communication\n3️⃣ Esprit d’équipe\n\n📌 Enregistrez ce post !\n\n#RH #ConseilRH #Recrutement",
+            "date": "2026-03-30",
+            "time": "12:00",
+            "category": "hr_news",
+            "status": "scheduled",
+            "author": "Marco B.",
+            "imageUrl": ""
+        },
+        {
+            "id": 3,
+            "content": "🌟 Success Story !\n\nIl y a 3 mois, Julie cherchait un nouveau challenge en Guadeloupe.\n\nAujourd’hui, elle est Responsable RH chez un grand groupe local !\n\n💪 La clé : un accompagnement personnalisé.\n\n#Réussite #Talents #Outremer",
+            "date": "2026-04-02",
+            "time": "08:30",
+            "category": "testimony",
+            "status": "scheduled",
+            "author": "Marco B.",
+            "imageUrl": ""
+        },
+        {
+            "id": 4,
+            "content": "🌴 L’économie guadeloupéenne en 2026 : les secteurs qui recrutent !\n\n📊 +12% de créations de postes dans le BTP\n📈 Le tourisme en plein boom\n🎯 La tech locale qui émerge\n\nLes opportunités sont là !\n\n#Guadeloupe #Emploi #Outremer",
+            "date": "2026-04-05",
+            "time": "10:00",
+            "category": "outremer",
+            "status": "scheduled",
+            "author": "Marco B.",
+            "imageUrl": ""
+        },
+        {
+            "id": 5,
+            "content": "☕ Ma journée type de consultant en recrutement :\n\n8h — Café + revue des candidatures\n9h — Entretien candidat\n10h30 — Brief client\n12h — Déjeuner réseau\n14h — Sourcing intensif\n16h — Suivi missions\n17h — Veille marché\n\nEt vous, à quoi ressemble votre journée ? 😄\n\n#ConsultantRH #VieDeRecruteur",
+            "date": "2026-04-07",
+            "time": "08:00",
+            "category": "consultant",
+            "status": "scheduled",
+            "author": "Marco B.",
+            "imageUrl": ""
+        },
+        {
+            "id": 6,
+            "content": "❌ Le problème :\nVotre dernier recrutement a pris 4 mois. Le candidat est parti au bout de 3.\n\n✅ La solution Talentys RH :\n\n📋 Diagnostic du besoin réel\n🔎 Sourcing ciblé via notre réseau local\n🎯 Shortlist qualifiée en 3 semaines max\n🤝 Accompagnement jusqu’à la fin de période d’essai\n\nRésultat ? 92% de nos placements encore en poste après 1 an.\n\n📩 Discutons de votre prochain recrutement.\n\n#Recrutement #RPO #TalentysRH #Outremer",
+            "date": "2026-03-29",
+            "time": "10:00",
+            "category": "promo_services",
+            "status": "scheduled",
+            "author": "Marco B.",
+            "imageUrl": ""
+        },
+        {
+            "id": 7,
+            "content": "👔 Dirigeant en Outre-Mer, cette question est pour vous :\n\nCombien vous coûte un recrutement raté ?\n\n💸 Coût direct : 30 000€ à 150 000€\n⏳ Coût indirect : temps perdu, démotivation\n😰 Coût caché : turn-over en chaîne\n\nUn cabinet spécialisé réduit ce risque de 70%.\n\n📩 Premier échange offert — écrivez-moi en DM\n\n#Dirigeant #Recrutement #ROI #TalentysRH",
+            "date": "2026-04-03",
+            "time": "09:00",
+            "category": "prospection",
+            "status": "scheduled",
+            "author": "Marco B.",
+            "imageUrl": ""
+        },
+        {
+            "id": 8,
+            "content": "📋 ÉTUDE DE CAS — Recrutement DAF en Martinique\n\n🏢 Client : Groupe BTP, 200 salariés\n⏱️ Délai : 18 jours\n✅ Candidat toujours en poste 10 mois après\n\nNotre approche :\n1️⃣ Audit du besoin avec le DG\n2️⃣ Sourcing ciblé réseau local + national\n3️⃣ Shortlist de 4 profils qualifiés\n4️⃣ Accompagnement intégration 3 mois\n\nROI estimé : 8× l’investissement initial\n\n📞 Un poste stratégique à pourvoir ?\n\n#CasClient #Recrutement #TalentysRH #Martinique",
+            "date": "2026-04-09",
+            "time": "08:30",
+            "category": "case_study",
+            "status": "scheduled",
+            "author": "Marco B.",
+            "imageUrl": ""
+        }
+    ]);
   const [currentMonth, setCurrentMonth] = useState(new Date(2026, 2));
   const [gen, setGen] = useState({ topic: "", tone: "professional", category: "job_offer", includeHashtags: true, includeCTA: true, content: "", isGenerating: false, selectedImage: null, selectedJob: null });
   const [talentysJobs, setTalentysJobs] = useState(TALENTYS_JOBS_CACHE);
@@ -807,24 +899,46 @@ function AppMain({ authUser, onLogout }) {
   }, []);
 
   /* ── ACTIONS ── */
-  const handleGenerate = () => {
-    // If job_offer category with a selected job, use the job-specific generator
-    if (gen.category === "job_offer" && gen.selectedJob) {
-      setGen(s => ({ ...s, isGenerating: true }));
-      setTimeout(() => {
-        setGen(s => ({ ...s, content: generateJobPost(s.selectedJob, s.tone, s.includeHashtags, s.includeCTA), isGenerating: false }));
-        showNotification("Post généré pour l'offre !");
-        API.trackActivity("generate_post", { category: "job_offer", tone: gen.tone });
-      }, 1800);
+  const handleGenerate = async () => {
+    // Validate inputs
+    if (gen.category !== "job_offer" && !gen.topic.trim()) {
+      showNotification("Saisissez un sujet", "warning");
       return;
     }
-    if (!gen.topic.trim()) { showNotification("Saisissez un sujet", "warning"); return; }
     setGen(s => ({ ...s, isGenerating: true }));
-    setTimeout(() => {
-      setGen(s => ({ ...s, content: generateAIPost(s.topic, s.tone, s.category, s.includeHashtags, s.includeCTA), isGenerating: false }));
-      showNotification("Post généré !");
-      API.trackActivity("generate_post", { category: gen.category, tone: gen.tone, topic: gen.topic });
-    }, 1800);
+    try {
+      // Build params for AI generation
+      const params = {
+        topic: gen.category === "job_offer" && gen.selectedJob ? gen.selectedJob.title : gen.topic,
+        tone: gen.tone,
+        category: gen.category,
+        includeHashtags: gen.includeHashtags,
+        includeCTA: gen.includeCTA,
+      };
+      // Add job info if applicable
+      if (gen.category === "job_offer" && gen.selectedJob) {
+        params.jobInfo = {
+          title: gen.selectedJob.title,
+          location: gen.selectedJob.location,
+          department: gen.selectedJob.department,
+          url: gen.selectedJob.url,
+        };
+      }
+      const data = await API.generatePost(params);
+      setGen(s => ({ ...s, content: data.content, isGenerating: false }));
+      showNotification(data.model ? `Post généré par ${data.model} ✨` : "Post généré !");
+      API.trackActivity("generate_post", { category: gen.category, tone: gen.tone, topic: params.topic, ai: true });
+    } catch (err) {
+      console.error("AI generation error:", err);
+      // Fallback to local templates if API fails
+      if (gen.category === "job_offer" && gen.selectedJob) {
+        setGen(s => ({ ...s, content: generateJobPost(s.selectedJob, s.tone, s.includeHashtags, s.includeCTA), isGenerating: false }));
+      } else {
+        setGen(s => ({ ...s, content: generateAIPost(s.topic, s.tone, s.category, s.includeHashtags, s.includeCTA), isGenerating: false }));
+      }
+      showNotification("Génération IA indisponible — post template utilisé", "warning");
+      API.trackActivity("generate_post", { category: gen.category, tone: gen.tone, topic: gen.topic, ai: false });
+    }
   };
 
   const refreshJobs = async () => {
@@ -1374,7 +1488,7 @@ function AppMain({ authUser, onLogout }) {
                 <Btn variant="gradient" onClick={() => openPublishNow(gen.content, gen.selectedImage?.src)}><Send size={13} /> Publier maintenant</Btn>
                 <Btn variant="primary" onClick={() => openSchedule(gen.content, gen.selectedImage?.src)}><Clock size={13} /> Programmer</Btn>
                 <Btn variant="secondary" onClick={() => copyText(gen.content)}><Copy size={13} /> Copier</Btn>
-                <Btn variant="ghost" onClick={handleGenerate}><RefreshCw size={13} /></Btn>
+                <Btn variant="secondary" onClick={handleGenerate} style={{ display: "flex", alignItems: "center", gap: 5 }}><RefreshCw size={13} /> Régénérer</Btn>
               </div>
             )}
           </div>
