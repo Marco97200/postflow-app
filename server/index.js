@@ -829,8 +829,8 @@ OBJECTIF DE CHAQUE POST : Maximiser l'engagement (likes, commentaires, partages,
 app.post('/api/generate', requireAuth, async (req, res) => {
   const { topic, tone, category, includeHashtags, includeCTA, jobInfo } = req.body;
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return res.status(500).json({ error: 'Cle API Anthropic non configuree. Ajoutez ANTHROPIC_API_KEY dans les variables d\'environnement.' });
+  if (!process.env.GROQ_API_KEY) {
+    return res.status(500).json({ error: 'Cle API Groq non configuree. Ajoutez GROQ_API_KEY dans les variables d\'environnement.' });
   }
 
   const toneInstructions = {
@@ -860,26 +860,28 @@ app.post('/api/generate', requireAuth, async (req, res) => {
     : `Redige une publication LinkedIn sur le sujet suivant : "${topic}"\n\nTon : ${toneInstructions[tone] || toneInstructions.professional}\n\nContexte categorie : ${categoryContext[category] || ''}\n\n${includeCTA ? 'Inclus un call-to-action fort en fin de post (pas de lien, invite au DM ou commentaire).' : 'Pas de call-to-action explicite.'}\n${includeHashtags ? 'Termine par 3-5 hashtags strategiques.' : 'Pas de hashtags.'}\n\nIMPORTANT : Ecris UNIQUEMENT le texte du post LinkedIn, rien d'autre. Pas d'introduction, pas d'explication, pas de guillemets autour du post.`;
 
   try {
-    const response = await axios.post('https://api.anthropic.com/v1/messages', {
-      model: 'claude-opus-4-6',
+    const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+      model: 'llama-3.3-70b-versatile',
       max_tokens: 1500,
-      system: LINKEDIN_EXPERT_PROMPT,
-      messages: [{ role: 'user', content: userPrompt }],
+      messages: [
+        { role: 'system', content: LINKEDIN_EXPERT_PROMPT },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.8,
     }, {
       headers: {
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
+        'Authorization': 'Bearer ' + process.env.GROQ_API_KEY,
         'Content-Type': 'application/json',
       },
       timeout: 30000,
     });
 
-    const generatedText = response.data.content[0].text.trim();
+    const generatedText = response.data.choices[0].message.content.trim();
 
     // Track activity
-    logActivity(req.user.id, req.user.name, 'generate_post', { category, tone, topic, model: 'claude-opus-4-6', aiGenerated: true });
+    logActivity(req.user.id, req.user.name, 'generate_post', { category, tone, topic, model: 'llama-3.3-70b', aiGenerated: true });
 
-    res.json({ content: generatedText, model: 'claude-opus-4-6' });
+    res.json({ content: generatedText, model: 'Llama 3.3 70B' });
   } catch (error) {
     console.error('AI generation error:', error.response?.data || error.message);
     res.status(500).json({
