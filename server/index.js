@@ -15,6 +15,29 @@ const PORT = process.env.PORT || 3001;
 const IS_PROD = process.env.NODE_ENV === 'production';
 const DB_PATH = join(__dirname, 'data', 'users.json');
 const ACTIVITY_PATH = join(__dirname, 'data', 'activity.json');
+const LIBRARY_PATH = join(__dirname, 'data', 'posts_library.json');
+
+/* ════════════════════════════════════════════════════════════════════
+   POSTS LIBRARY — 990 pre-generated high-quality posts
+   ════════════════════════════════════════════════════════════════════ */
+let postsLibrary = [];
+try {
+  const libraryData = readFileSync(LIBRARY_PATH, 'utf-8');
+  postsLibrary = JSON.parse(libraryData);
+  console.log(`✅ Posts library loaded: ${postsLibrary.length} posts`);
+} catch (err) {
+  console.error('⚠️ Could not load posts library:', err.message);
+}
+
+// Index library by category+tone for fast lookup
+const libraryIndex = {};
+for (const post of postsLibrary) {
+  const key = `${post.category}__${post.tone}`;
+  if (!libraryIndex[key]) libraryIndex[key] = [];
+  libraryIndex[key].push(post);
+}
+// Track recently used posts to avoid repetition (per session)
+const recentlyUsedIds = new Set();
 
 app.use(cors({
   origin: IS_PROD ? true : (process.env.FRONTEND_URL || 'http://localhost:5173'),
@@ -29,9 +52,9 @@ if (IS_PROD) app.set('trust proxy', 1);
 // In-memory token store (production: use a real DB or session store)
 const tokenStore = new Map();
 
-/* ====================================================================
+/* ════════════════════════════════════════════════════════════════════
    USER DATABASE (JSON file-based for simplicity)
-   ==================================================================== */
+   ════════════════════════════════════════════════════════════════════ */
 const hashPassword = (pwd) => createHash('sha256').update(pwd + 'postflow-salt-2026').digest('hex');
 
 const loadUsers = () => {
@@ -68,9 +91,9 @@ const initDB = () => {
 let usersDB = initDB();
 const sessionStore = new Map();
 
-/* ====================================================================
+/* ════════════════════════════════════════════════════════════════════
    ACTIVITY TRACKING
-   ==================================================================== */
+   ════════════════════════════════════════════════════════════════════ */
 const loadActivity = () => {
   try { if (existsSync(ACTIVITY_PATH)) return JSON.parse(readFileSync(ACTIVITY_PATH, 'utf8')); } catch {}
   return [];
@@ -97,13 +120,13 @@ const logActivity = (userId, userName, action, details = {}) => {
   saveActivity(logs);
 };
 
-/* ====================================================================
+/* ════════════════════════════════════════════════════════════════════
    AUTH MIDDLEWARE
-   ==================================================================== */
+   ════════════════════════════════════════════════════════════════════ */
 const requireAuth = (req, res, next) => {
   const sessionId = req.cookies.postflow_session;
   if (!sessionId || !sessionStore.has(sessionId)) {
-    return res.status(401).json({ error: 'Non authentifie' });
+    return res.status(401).json({ error: 'Non authentifié' });
   }
   req.user = sessionStore.get(sessionId);
   next();
@@ -111,14 +134,14 @@ const requireAuth = (req, res, next) => {
 
 const requireAdmin = (req, res, next) => {
   if (req.user?.role !== 'admin') {
-    return res.status(403).json({ error: 'Acces reserve aux administrateurs' });
+    return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
   }
   next();
 };
 
-/* ====================================================================
+/* ════════════════════════════════════════════════════════════════════
    AUTH ROUTES
-   ==================================================================== */
+   ════════════════════════════════════════════════════════════════════ */
 app.post('/api/auth/login', (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
@@ -126,7 +149,7 @@ app.post('/api/auth/login', (req, res) => {
   usersDB = loadUsers();
   const user = usersDB.find(u => u.email.toLowerCase() === email.toLowerCase());
   if (!user) return res.status(401).json({ error: 'Identifiants incorrects' });
-  if (user.status === 'disabled') return res.status(403).json({ error: 'Compte desactive' });
+  if (user.status === 'disabled') return res.status(403).json({ error: 'Compte désactivé' });
   if (user.password !== hashPassword(password)) return res.status(401).json({ error: 'Identifiants incorrects' });
 
   const sessionId = randomBytes(32).toString('hex');
@@ -156,11 +179,11 @@ app.get('/api/auth/me', (req, res) => {
 
 app.post('/api/auth/change-password', requireAuth, (req, res) => {
   const { newPassword } = req.body;
-  if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caracteres' });
+  if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' });
 
   usersDB = loadUsers();
   const user = usersDB.find(u => u.id === req.user.id);
-  if (!user) return res.status(404).json({ error: 'Utilisateur non trouve' });
+  if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
 
   user.password = hashPassword(newPassword);
   user.mustChangePassword = false;
@@ -168,9 +191,9 @@ app.post('/api/auth/change-password', requireAuth, (req, res) => {
   res.json({ success: true });
 });
 
-/* ====================================================================
-   ADMIN - USER MANAGEMENT
-   ==================================================================== */
+/* ════════════════════════════════════════════════════════════════════
+   ADMIN — USER MANAGEMENT
+   ════════════════════════════════════════════════════════════════════ */
 app.get('/api/admin/users', requireAuth, requireAdmin, (req, res) => {
   usersDB = loadUsers();
   const safeUsers = usersDB.map(({ password, ...u }) => u);
@@ -183,7 +206,7 @@ app.post('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
 
   usersDB = loadUsers();
   if (usersDB.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-    return res.status(409).json({ error: 'Cet email est deja utilise' });
+    return res.status(409).json({ error: 'Cet email est déjà utilisé' });
   }
 
   const tempPassword = randomBytes(4).toString('hex');
@@ -217,7 +240,7 @@ app.post('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
 app.delete('/api/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
   usersDB = loadUsers();
   const idx = usersDB.findIndex(u => u.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Utilisateur non trouve' });
+  if (idx === -1) return res.status(404).json({ error: 'Utilisateur non trouvé' });
   if (usersDB[idx].role === 'admin' && usersDB.filter(u => u.role === 'admin').length <= 1) {
     return res.status(400).json({ error: 'Impossible de supprimer le dernier administrateur' });
   }
@@ -229,7 +252,7 @@ app.delete('/api/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
 app.patch('/api/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
   usersDB = loadUsers();
   const user = usersDB.find(u => u.id === req.params.id);
-  if (!user) return res.status(404).json({ error: 'Utilisateur non trouve' });
+  if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
 
   const { name, role, status } = req.body;
   if (name) user.name = name.trim();
@@ -244,7 +267,7 @@ app.patch('/api/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
 app.post('/api/admin/users/:id/resend-invite', requireAuth, requireAdmin, async (req, res) => {
   usersDB = loadUsers();
   const user = usersDB.find(u => u.id === req.params.id);
-  if (!user) return res.status(404).json({ error: 'Utilisateur non trouve' });
+  if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
 
   const tempPassword = randomBytes(4).toString('hex');
   user.password = hashPassword(tempPassword);
@@ -256,9 +279,9 @@ app.post('/api/admin/users/:id/resend-invite', requireAuth, requireAdmin, async 
   res.json({ success: true, tempPassword, emailSent });
 });
 
-/* ====================================================================
-   ADMIN - RESET DATA (clean slate)
-   ==================================================================== */
+/* ════════════════════════════════════════════════════════════════════
+   ADMIN — RESET DATA (clean slate)
+   ════════════════════════════════════════════════════════════════════ */
 app.post('/api/admin/reset', requireAuth, requireAdmin, (req, res) => {
   const { resetUsers, resetActivity } = req.body;
 
@@ -291,13 +314,13 @@ app.post('/api/admin/reset', requireAuth, requireAdmin, (req, res) => {
     if (sid !== currentSessionId) sessionStore.delete(sid);
   }
 
-  console.log('[REFRESH] Database reset performed by admin');
-  res.json({ success: true, message: 'Donnees reinitialisees avec succes' });
+  console.log('🔄 Database reset performed by admin');
+  res.json({ success: true, message: 'Données réinitialisées avec succès' });
 });
 
-/* ====================================================================
-   ADMIN - ACTIVITY TRACKING API
-   ==================================================================== */
+/* ════════════════════════════════════════════════════════════════════
+   ADMIN — ACTIVITY TRACKING API
+   ════════════════════════════════════════════════════════════════════ */
 app.get('/api/admin/activity', requireAuth, requireAdmin, (req, res) => {
   const { userId, limit = 100 } = req.query;
   let logs = loadActivity();
@@ -344,14 +367,14 @@ app.get('/api/admin/activity/stats', requireAuth, requireAdmin, (req, res) => {
 app.post('/api/activity/track', requireAuth, (req, res) => {
   const { action, details } = req.body;
   const allowed = ['generate_post', 'schedule_post', 'use_template', 'search_pexels', 'copy_post', 'upload_image', 'publish_linkedin'];
-  if (!allowed.includes(action)) return res.status(400).json({ error: 'Action non autorisee' });
+  if (!allowed.includes(action)) return res.status(400).json({ error: 'Action non autorisée' });
   logActivity(req.user.id, req.user.name, action, details || {});
   res.json({ success: true });
 });
 
-/* ====================================================================
-   EMAIL - INVITATION WITH TUTORIAL
-   ==================================================================== */
+/* ════════════════════════════════════════════════════════════════════
+   EMAIL — INVITATION WITH TUTORIAL
+   ════════════════════════════════════════════════════════════════════ */
 const getMailTransporter = () => {
   if (process.env.SMTP_HOST) {
     return nodemailer.createTransport({
@@ -374,7 +397,7 @@ const getMailTransporter = () => {
 const sendInvitationEmail = async (user, tempPassword) => {
   const transporter = getMailTransporter();
   if (!transporter) {
-    console.log('[WARNING]  No email config - invitation not sent. Temp password:', tempPassword);
+    console.log('⚠️  No email config — invitation not sent. Temp password:', tempPassword);
     return false;
   }
 
@@ -392,7 +415,7 @@ const sendInvitationEmail = async (user, tempPassword) => {
   <!-- Header -->
   <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6,#ec4899);border-radius:16px 16px 0 0;padding:32px 24px;text-align:center;">
     <div style="width:56px;height:56px;background:rgba(255,255,255,0.2);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
-      <span style="font-size:28px;">[BOLT]</span>
+      <span style="font-size:28px;">⚡</span>
     </div>
     <h1 style="color:#fff;margin:0;font-size:24px;font-weight:800;">Bienvenue sur PostFlow</h1>
     <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px;">by Talentys RH</p>
@@ -402,30 +425,30 @@ const sendInvitationEmail = async (user, tempPassword) => {
   <div style="background:#fff;padding:32px 24px;border-left:1px solid #e2e5f0;border-right:1px solid #e2e5f0;">
     <p style="color:#1a1d2e;font-size:16px;margin:0 0 16px;">Bonjour <strong>${user.name}</strong>,</p>
     <p style="color:#5c5f7e;font-size:14px;line-height:1.6;margin:0 0 24px;">
-      Marco Beauzile vous invite a rejoindre <strong>PostFlow</strong>, l'outil de gestion et de publication LinkedIn de Talentys RH.
-      Votre compte a ete cree et est pret a utiliser !
+      Marco Beauzile vous invite à rejoindre <strong>PostFlow</strong>, l'outil de gestion et de publication LinkedIn de Talentys RH.
+      Votre compte a été créé et est prêt à utiliser !
     </p>
 
     <!-- Credentials Box -->
     <div style="background:#f8f9fc;border:1px solid #e2e5f0;border-radius:12px;padding:20px;margin:0 0 24px;">
-      <h3 style="color:#1a1d2e;font-size:14px;margin:0 0 12px;font-weight:700;">[KEY] Vos identifiants de connexion</h3>
+      <h3 style="color:#1a1d2e;font-size:14px;margin:0 0 12px;font-weight:700;">🔑 Vos identifiants de connexion</h3>
       <table style="width:100%;font-size:14px;">
         <tr><td style="color:#5c5f7e;padding:4px 0;">Email :</td><td style="color:#1a1d2e;font-weight:600;">${user.email}</td></tr>
         <tr><td style="color:#5c5f7e;padding:4px 0;">Mot de passe temporaire :</td><td style="color:#6366f1;font-weight:700;font-family:monospace;font-size:16px;">${tempPassword}</td></tr>
       </table>
-      <p style="color:#ef4444;font-size:12px;margin:12px 0 0;">[WARNING] Vous devrez changer votre mot de passe lors de votre premiere connexion.</p>
+      <p style="color:#ef4444;font-size:12px;margin:12px 0 0;">⚠️ Vous devrez changer votre mot de passe lors de votre première connexion.</p>
     </div>
 
     <!-- CTA Button -->
     <div style="text-align:center;margin:0 0 32px;">
       <a href="${appUrl}" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:700;font-size:15px;box-shadow:0 4px 15px rgba(99,102,241,0.3);">
-        Se connecter a PostFlow ->
+        Se connecter à PostFlow →
       </a>
     </div>
 
     <!-- Tutorial Section -->
     <div style="border-top:1px solid #e2e5f0;padding-top:24px;">
-      <h2 style="color:#1a1d2e;font-size:18px;margin:0 0 16px;font-weight:800;">[BOOK] Guide de demarrage rapide</h2>
+      <h2 style="color:#1a1d2e;font-size:18px;margin:0 0 16px;font-weight:800;">📖 Guide de démarrage rapide</h2>
 
       <!-- Step 1 -->
       <div style="display:flex;gap:12px;margin:0 0 20px;">
@@ -449,8 +472,8 @@ const sendInvitationEmail = async (user, tempPassword) => {
         <div>
           <h4 style="color:#1a1d2e;margin:0 0 4px;font-size:14px;">Liez votre compte LinkedIn</h4>
           <p style="color:#5c5f7e;font-size:13px;margin:0;line-height:1.5;">
-            En bas a gauche de l'ecran, cliquez sur <strong>"Non connecte"</strong> puis <strong>"Se connecter avec LinkedIn"</strong>.
-            Autorisez PostFlow a publier en votre nom. C'est securise via OAuth 2.0 - nous ne voyons jamais votre mot de passe LinkedIn.
+            En bas à gauche de l'écran, cliquez sur <strong>"Non connecté"</strong> puis <strong>"Se connecter avec LinkedIn"</strong>.
+            Autorisez PostFlow à publier en votre nom. C'est sécurisé via OAuth 2.0 — nous ne voyons jamais votre mot de passe LinkedIn.
           </p>
         </div>
       </div>
@@ -461,10 +484,10 @@ const sendInvitationEmail = async (user, tempPassword) => {
           <span style="color:#fff;font-weight:800;font-size:16px;">3</span>
         </div>
         <div>
-          <h4 style="color:#1a1d2e;margin:0 0 4px;font-size:14px;">Creez votre premier post</h4>
+          <h4 style="color:#1a1d2e;margin:0 0 4px;font-size:14px;">Créez votre premier post</h4>
           <p style="color:#5c5f7e;font-size:13px;margin:0;line-height:1.5;">
-            Cliquez sur <strong>"Creer un post"</strong> dans le menu. Choisissez une categorie (offre d'emploi, conseil RH, etc.), selectionnez le ton souhaite, puis cliquez sur <strong>"Generer"</strong>.
-            Vous pouvez modifier le texte, ajouter une image Pexels et previsualiser le resultat.
+            Cliquez sur <strong>"Créer un post"</strong> dans le menu. Choisissez une catégorie (offre d'emploi, conseil RH, etc.), sélectionnez le ton souhaité, puis cliquez sur <strong>"Générer"</strong>.
+            Vous pouvez modifier le texte, ajouter une image Pexels et prévisualiser le résultat.
           </p>
         </div>
       </div>
@@ -478,7 +501,7 @@ const sendInvitationEmail = async (user, tempPassword) => {
           <h4 style="color:#1a1d2e;margin:0 0 4px;font-size:14px;">Publiez ou programmez</h4>
           <p style="color:#5c5f7e;font-size:13px;margin:0;line-height:1.5;">
             Deux options : <strong>"Publier maintenant"</strong> pour poster directement sur LinkedIn, ou <strong>"Programmer"</strong> pour choisir une date et heure.
-            Retrouvez toutes vos publications planifiees dans l'onglet <strong>Calendrier</strong>.
+            Retrouvez toutes vos publications planifiées dans l'onglet <strong>Calendrier</strong>.
           </p>
         </div>
       </div>
@@ -491,7 +514,7 @@ const sendInvitationEmail = async (user, tempPassword) => {
         <div>
           <h4 style="color:#1a1d2e;margin:0 0 4px;font-size:14px;">Explorez les Templates</h4>
           <p style="color:#5c5f7e;font-size:13px;margin:0;line-height:1.5;">
-            L'onglet <strong>Templates</strong> contient 20 modeles prets a l'emploi : offres d'emploi, conseils RH, temoignages, prospection...
+            L'onglet <strong>Templates</strong> contient 20 modèles prêts à l'emploi : offres d'emploi, conseils RH, témoignages, prospection…
             Cliquez sur un template pour l'utiliser comme base de votre publication.
           </p>
         </div>
@@ -499,14 +522,14 @@ const sendInvitationEmail = async (user, tempPassword) => {
 
       <!-- Tips Box -->
       <div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:12px;padding:16px;margin:20px 0 0;">
-        <h4 style="color:#4f46e5;font-size:13px;margin:0 0 8px;">[BULB] Astuces pour des posts LinkedIn performants</h4>
+        <h4 style="color:#4f46e5;font-size:13px;margin:0 0 8px;">💡 Astuces pour des posts LinkedIn performants</h4>
         <ul style="color:#5c5f7e;font-size:13px;margin:0;padding-left:16px;line-height:1.8;">
-          <li>Postez idealement entre <strong>8h et 10h</strong> du matin (heure locale)</li>
+          <li>Postez idéalement entre <strong>8h et 10h</strong> du matin (heure locale)</li>
           <li>Les mardis et jeudis ont le meilleur engagement</li>
-          <li>Ajoutez toujours une <strong>image</strong> - les posts avec visuels obtiennent 2x plus de vues</li>
+          <li>Ajoutez toujours une <strong>image</strong> — les posts avec visuels obtiennent 2x plus de vues</li>
           <li>Terminez par une <strong>question ouverte</strong> pour encourager les commentaires</li>
-          <li>Utilisez 3 a 5 hashtags maximum, pas plus</li>
-          <li>Objectif : <strong>3 posts par semaine</strong> pour une visibilite optimale</li>
+          <li>Utilisez 3 à 5 hashtags maximum, pas plus</li>
+          <li>Objectif : <strong>3 posts par semaine</strong> pour une visibilité optimale</li>
         </ul>
       </div>
     </div>
@@ -515,8 +538,8 @@ const sendInvitationEmail = async (user, tempPassword) => {
   <!-- Footer -->
   <div style="background:#f8f9fc;border-radius:0 0 16px 16px;padding:20px 24px;text-align:center;border:1px solid #e2e5f0;border-top:none;">
     <p style="color:#9496b0;font-size:12px;margin:0;">
-      PostFlow by Talentys RH - Cabinet de recrutement specialise Outre-Mer<br>
-      Martinique * Guadeloupe * Guyane * Reunion * Mayotte<br><br>
+      PostFlow by Talentys RH — Cabinet de recrutement spécialisé Outre-Mer<br>
+      Martinique • Guadeloupe • Guyane • Réunion • Mayotte<br><br>
       Des questions ? Contactez Marco : <a href="mailto:marc.beauzile@mobilite-rh-outremer.net" style="color:#6366f1;">marc.beauzile@mobilite-rh-outremer.net</a>
     </p>
   </div>
@@ -528,17 +551,17 @@ const sendInvitationEmail = async (user, tempPassword) => {
   await transporter.sendMail({
     from: `"${fromName}" <${fromEmail}>`,
     to: user.email,
-    subject: '[ROCKET] Bienvenue sur PostFlow - Votre compte est pret !',
+    subject: '🚀 Bienvenue sur PostFlow — Votre compte est prêt !',
     html,
   });
 
-  console.log(`[OK] Invitation email sent to ${user.email}`);
+  console.log(`✅ Invitation email sent to ${user.email}`);
   return true;
 };
 
-/* ====================================================================
+/* ════════════════════════════════════════════════════════════════════
    LINKEDIN OAuth 2.0
-   ==================================================================== */
+   ════════════════════════════════════════════════════════════════════ */
 
 // Step 1: Redirect user to LinkedIn authorization page
 app.get('/api/linkedin/auth', (req, res) => {
@@ -674,7 +697,7 @@ async function getImageBuffer(imageUrl) {
     const base64Data = imageUrl.split(',')[1];
     return Buffer.from(base64Data, 'base64');
   } else {
-    // Remote URL (Pexels, etc.) - download it
+    // Remote URL (Pexels, etc.) — download it
     const response = await axios.get(imageUrl, {
       responseType: 'arraybuffer',
       timeout: 15000,
@@ -686,7 +709,7 @@ async function getImageBuffer(imageUrl) {
 app.post('/api/linkedin/publish', async (req, res) => {
   const userId = req.cookies.linkedin_user;
   if (!userId || !tokenStore.has(userId)) {
-    return res.status(401).json({ error: 'Non connecte a LinkedIn' });
+    return res.status(401).json({ error: 'Non connecté à LinkedIn' });
   }
 
   const { access_token, profile } = tokenStore.get(userId);
@@ -764,15 +787,15 @@ app.post('/api/linkedin/disconnect', (req, res) => {
   res.json({ success: true });
 });
 
-/* ====================================================================
+/* ════════════════════════════════════════════════════════════════════
    PEXELS API
-   ==================================================================== */
+   ════════════════════════════════════════════════════════════════════ */
 
 app.get('/api/pexels/search', async (req, res) => {
   const { query, page = 1, per_page = 15 } = req.query;
 
   if (!process.env.PEXELS_API_KEY) {
-    return res.status(500).json({ error: 'Cle API Pexels non configuree' });
+    return res.status(500).json({ error: 'Clé API Pexels non configurée' });
   }
 
   try {
@@ -799,122 +822,158 @@ app.get('/api/pexels/search', async (req, res) => {
   }
 });
 
-/* ====================================================================
-   AI POST GENERATION - Claude Opus 4.6 via Anthropic API
-   ==================================================================== */
+/* ════════════════════════════════════════════════════════════════════
+   AI POST GENERATION — Claude Opus 4.6 via Anthropic API
+   ════════════════════════════════════════════════════════════════════ */
 
-const LINKEDIN_EXPERT_PROMPT = `Tu es un ghostwriter LinkedIn d'elite, specialise dans le personal branding B2B et la generation d'engagement organique. Tu rediges pour Marco Beauzile, fondateur de Talentys RH, cabinet de recrutement specialise Outre-Mer (Martinique, Guadeloupe, Guyane, Reunion, Mayotte).
+const LINKEDIN_EXPERT_PROMPT = `Tu es un ghostwriter LinkedIn d'élite, spécialisé dans le personal branding B2B et la génération d'engagement organique. Tu rédiges pour Marco Beauzile, fondateur de Talentys RH, cabinet de recrutement spécialisé Outre-Mer (Martinique, Guadeloupe, Guyane, Réunion, Mayotte).
 
-REGLES DE REDACTION ABSOLUES :
-1. ACCROCHE IRRESISTIBLE (1ere ligne) - C'est elle qui decide si le post sera lu. Provoque la curiosite, utilise une stat percutante, une question rhetorique, une affirmation contre-intuitive ou un storytelling immediat. JAMAIS de emoji en premiere ligne. La premiere ligne doit donner envie de cliquer "voir plus".
-2. STRUCTURE AEREE - Sauts de ligne frequents. Maximum 2-3 lignes par paragraphe. Le scroll doit etre fluide sur mobile.
-3. TON HUMAIN ET AUTHENTIQUE - Ecris comme quelqu'un qui parle a son reseau, pas comme un communique corporate. Ose la 1ere personne, les anecdotes, les convictions fortes.
-4. VALEUR CONCRETE - Chaque post doit apporter quelque chose : un insight, un chiffre, une methode, un retour d'experience. Pas de platitudes.
-5. ENGAGEMENT NATIF - Termine par un element qui genere des reactions : question ouverte, sondage implicite, appel au partage d'experience, prise de position qui invite au debat.
-6. ZERO LIEN EXTERNE dans le corps du post (LinkedIn penalise les liens). Si CTA, utilise "DM ouvert" ou "commentez".
-7. HASHTAGS STRATEGIQUES - 3 a 5 max, pertinents, en fin de post. Mix de hashtags populaires et niches.
-8. LONGUEUR OPTIMALE - Entre 800 et 1500 caracteres. Assez long pour apporter de la valeur, assez court pour etre lu en entier.
-9. EMOJIS AVEC PARCIMONIE - 2-4 max par post, jamais en debut de ligne systematique. Utilise-les comme ponctuations visuelles, pas comme decoration.
-10. PAS DE FORMAT LISTE SYSTEMATIQUE - Varie entre storytelling, opinion tranchee, retour d'experience, question, thread mini, analyse.
+RÈGLES DE RÉDACTION ABSOLUES :
+1. ACCROCHE IRRÉSISTIBLE (1ère ligne) — C'est elle qui décide si le post sera lu. Provoque la curiosité, utilise une stat percutante, une question rhétorique, une affirmation contre-intuitive ou un storytelling immédiat. JAMAIS de emoji en première ligne. La première ligne doit donner envie de cliquer "voir plus".
+2. STRUCTURE AÉRÉE — Sauts de ligne fréquents. Maximum 2-3 lignes par paragraphe. Le scroll doit être fluide sur mobile.
+3. TON HUMAIN ET AUTHENTIQUE — Écris comme quelqu'un qui parle à son réseau, pas comme un communiqué corporate. Ose la 1ère personne, les anecdotes, les convictions fortes.
+4. VALEUR CONCRÈTE — Chaque post doit apporter quelque chose : un insight, un chiffre, une méthode, un retour d'expérience. Pas de platitudes.
+5. ENGAGEMENT NATIF — Termine par un élément qui génère des réactions : question ouverte, sondage implicite, appel au partage d'expérience, prise de position qui invite au débat.
+6. ZÉRO LIEN EXTERNE dans le corps du post (LinkedIn pénalise les liens). Si CTA, utilise "DM ouvert" ou "commentez".
+7. HASHTAGS STRATÉGIQUES — 3 à 5 max, pertinents, en fin de post. Mix de hashtags populaires et niches.
+8. LONGUEUR OPTIMALE — Entre 800 et 1500 caractères. Assez long pour apporter de la valeur, assez court pour être lu en entier.
+9. EMOJIS AVEC PARCIMONIE — 2-4 max par post, jamais en début de ligne systématique. Utilise-les comme ponctuations visuelles, pas comme décoration.
+10. PAS DE FORMAT LISTE SYSTÉMATIQUE — Varie entre storytelling, opinion tranchée, retour d'expérience, question, thread mini, analyse.
 
 EXPERTISE DE MARCO :
 - 10+ ans dans le recrutement en Outre-Mer
-- Reseau de +2000 contacts qualifies dans les DOM
-- Specialiste du recrutement de cadres et profils penuriques en territoires ultramarins
-- Connaissance intime du tissu economique de chaque territoire
-- Approche : recrutement par approche directe + reseau diaspora
+- Réseau de +2000 contacts qualifiés dans les DOM
+- Spécialiste du recrutement de cadres et profils pénuriques en territoires ultramarins
+- Connaissance intime du tissu économique de chaque territoire
+- Approche : recrutement par approche directe + réseau diaspora
 
-OBJECTIF DE CHAQUE POST : Maximiser l'engagement (likes, commentaires, partages, enregistrements) tout en positionnant Marco comme LA reference recrutement Outre-Mer.`;
+OBJECTIF DE CHAQUE POST : Maximiser l'engagement (likes, commentaires, partages, enregistrements) tout en positionnant Marco comme LA référence recrutement Outre-Mer.`;
 
 app.post('/api/generate', requireAuth, async (req, res) => {
   const { topic, tone, category, includeHashtags, includeCTA, jobInfo } = req.body;
 
-  if (!process.env.GROQ_API_KEY) {
-    return res.status(500).json({ error: 'Cle API Groq non configuree. Ajoutez GROQ_API_KEY dans les variables d\'environnement.' });
+  const effectiveTone = tone || 'professional';
+  const effectiveCategory = jobInfo ? 'job_offer' : (category || 'hr_news');
+
+  // ── STEP 1: Try posts library first (zero API cost) ──
+  const libraryKey = `${effectiveCategory}__${effectiveTone}`;
+  const matchingPosts = libraryIndex[libraryKey] || [];
+
+  if (matchingPosts.length > 0) {
+    // Pick a random post that hasn't been used recently
+    let availablePosts = matchingPosts.filter(p => !recentlyUsedIds.has(p.id));
+    if (availablePosts.length === 0) {
+      // All posts used — reset tracker for this category/tone
+      matchingPosts.forEach(p => recentlyUsedIds.delete(p.id));
+      availablePosts = matchingPosts;
+    }
+
+    const selected = availablePosts[Math.floor(Math.random() * availablePosts.length)];
+    recentlyUsedIds.add(selected.id);
+
+    // Keep recently used set manageable
+    if (recentlyUsedIds.size > 500) {
+      const idsArray = [...recentlyUsedIds];
+      recentlyUsedIds.clear();
+      idsArray.slice(-200).forEach(id => recentlyUsedIds.add(id));
+    }
+
+    let content = selected.content;
+
+    // For job offers, replace placeholders with actual job data
+    if (effectiveCategory === 'job_offer' && jobInfo) {
+      content = content
+        .replace(/\{POSTE\}/g, jobInfo.title || 'Poste à pourvoir')
+        .replace(/\{LIEU\}/g, jobInfo.location || 'Outre-Mer')
+        .replace(/\{DEPARTEMENT\}/g, jobInfo.department || '')
+        .replace(/\{URL\}/g, jobInfo.url || '');
+    }
+
+    // Remove hashtags if not wanted
+    if (!includeHashtags) {
+      content = content.replace(/\n*#\w+(\s+#\w+)*/g, '').trim();
+    }
+
+    // Add CTA if requested and not already present
+    if (includeCTA && !content.includes('DM') && !content.includes('commentez') && !content.includes('commentaire')) {
+      content += '\n\n💬 Intéressé(e) ? Envoyez-moi un message en DM ou commentez ce post !';
+    }
+
+    logActivity(req.user.id, req.user.name, 'generate_post', {
+      category: effectiveCategory, tone: effectiveTone, topic,
+      source: 'library', postId: selected.id,
+    });
+
+    return res.json({ content: content.trim(), model: 'library', source: 'posts_library' });
+  }
+
+  // ── STEP 2: Fallback to Anthropic API if no library match ──
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(500).json({
+      error: 'Aucun post trouvé dans la bibliothèque pour cette combinaison catégorie/ton, et la clé API Anthropic n\'est pas configurée.',
+    });
   }
 
   const toneInstructions = {
-    professional: "Ton professionnel et expert. Inspirant confiance et credibilite. Vocabulaire precis, structure claire.",
-    inspiring: "Ton inspirant et motivant. Storytelling emotionnel, exemples qui font reflechir. Donne envie d'agir.",
-    storytelling: "Format storytelling pur. Raconte une histoire (vraie ou realiste) avec un arc narratif : situation -> tension -> resolution -> lecon. Le lecteur doit se sentir transporte.",
-    educational: "Ton educatif et pedagogique. Partage un savoir-faire, une methode, des chiffres. Le lecteur doit repartir avec quelque chose de concret et applicable.",
-    casual: "Ton decontracte et authentique. Comme une conversation entre pros autour d'un cafe. Humour fin bienvenu, proximite, franc-parler.",
-    engaging: "Ton provocateur (bienveillant) et engageant. Prends position, challenge les idees recues, pose des questions qui font debat. Objectif : faire reagir dans les commentaires.",
+    professional: "Ton professionnel et expert. Inspirant confiance et crédibilité.",
+    inspiring: "Ton inspirant et motivant. Storytelling émotionnel.",
+    storytelling: "Format storytelling pur. Arc narratif : situation → tension → résolution → leçon.",
+    educational: "Ton éducatif et pédagogique. Partage un savoir-faire concret.",
+    casual: "Ton décontracté et authentique. Comme une conversation entre pros.",
+    engaging: "Ton provocateur (bienveillant) et engageant. Challenge les idées reçues.",
   };
 
   const categoryContext = {
-    job_offer: "Publication pour promouvoir une offre d'emploi en cours chez Talentys RH, cabinet de recrutement Outre-Mer. Marco recrute POUR SES CLIENTS. Objectif : attirer les candidats qualifies et encourager le partage dans le reseau.",
-    promo_services: "Promotion des services de Talentys RH. Objectif : demontrer l'expertise et generer des leads.",
-    prospection: "Contenu de prospection B2B ciblant les dirigeants et DRH. Objectif : identifier et attirer des clients potentiels.",
-    employer_brand: "Contenu marque employeur. Objectif : aider les entreprises a comprendre l'importance de leur image employeur.",
-    hr_news: "Analyse d'actualite RH. Objectif : positionner Marco comme expert et generer du debat.",
-    consultant: "Partage de la vie de consultant en recrutement. Objectif : humaniser la marque et creer de la proximite.",
-    outremer: "Focus sur l'economie et l'emploi en Outre-Mer. Objectif : valoriser les territoires et attirer l'attention.",
-    testimony: "Temoignage ou success story. Objectif : prouver par l'exemple et inspirer confiance.",
-    motivation: "Post motivationnel et inspirant. Objectif : federer la communaute et generer de l'engagement emotionnel.",
-    case_study: "Etude de cas recrutement. Objectif : demontrer la methode et le ROI concret.",
+    job_offer: "Publication pour promouvoir une offre d'emploi. Talentys RH est un CABINET DE RECRUTEMENT. Nous recrutons POUR NOS CLIENTS. Ne dis JAMAIS 'nous recrutons' comme si c'était l'entreprise. Utilise 'Notre client recherche...' ou 'Nous accompagnons notre client dans la recherche de...'",
+    promo_services: "Promotion des services de Talentys RH.",
+    prospection: "Contenu de prospection B2B ciblant les dirigeants et DRH.",
+    employer_brand: "Contenu marque employeur.",
+    hr_news: "Analyse d'actualité RH.",
+    consultant: "Partage de la vie de consultant en recrutement.",
+    outremer: "Focus sur l'économie et l'emploi en Outre-Mer.",
+    testimony: "Témoignage ou success story.",
+    motivation: "Post motivationnel et inspirant.",
+    case_study: "Étude de cas recrutement.",
   };
 
   const userPrompt = jobInfo
-    ? `Redige une publication LinkedIn pour promouvoir cette offre d'emploi en cours chez Talentys RH.
-
-CONTEXTE ESSENTIEL :
-- Talentys RH est un CABINET DE RECRUTEMENT specialise Outre-Mer. Nous recrutons POUR NOS CLIENTS (entreprises).
-- Marco Beauzile publie sur LinkedIn pour attirer des candidats au nom de ses clients.
-- Ne dis JAMAIS "nous recrutons" comme si c'etait l'entreprise. Utilise : "Notre client recherche...", "Nous accompagnons une entreprise dans le recrutement de...", "Mission pour un acteur reconnu du secteur..."
-- Mentionne que les candidats peuvent postuler via le lien OU contacter Marco en DM.
-
-DETAILS DE L'OFFRE :
-- Poste : ${jobInfo.title}
-- Localisation : ${jobInfo.location}
-- Secteur : ${jobInfo.department}
-- Lien candidature : ${jobInfo.url}
-
-CONSIGNES :
-- Ton : ${toneInstructions[tone] || toneInstructions.professional}
-- Mets en avant les atouts du poste et du territoire ultramarin
-- Ajoute des missions credibles pour ce type de poste
-- ${includeCTA ? "Inclus un call-to-action fort : invite au DM, a commenter, ou a partager." : "Pas de call-to-action explicite."}
-- ${includeHashtags ? "Termine par 3-5 hashtags strategiques (recrutement + territoire + secteur)." : "Pas de hashtags."}
-
-IMPORTANT : Ecris UNIQUEMENT le texte du post LinkedIn, rien d'autre.`
-    : `Redige une publication LinkedIn sur le sujet suivant : "${topic}"\n\nTon : ${toneInstructions[tone] || toneInstructions.professional}\n\nContexte categorie : ${categoryContext[category] || ''}\n\n${includeCTA ? 'Inclus un call-to-action fort en fin de post (pas de lien, invite au DM ou commentaire).' : 'Pas de call-to-action explicite.'}\n${includeHashtags ? 'Termine par 3-5 hashtags strategiques.' : 'Pas de hashtags.'}\n\nIMPORTANT : Ecris UNIQUEMENT le texte du post LinkedIn, rien d'autre. Pas d'introduction, pas d'explication, pas de guillemets autour du post.`;
+    ? `Rédige une publication LinkedIn pour promouvoir cette offre d'emploi :\n- Poste : ${jobInfo.title}\n- Localisation : ${jobInfo.location}\n- Département : ${jobInfo.department}\n- Lien : ${jobInfo.url}\n\nTon : ${toneInstructions[effectiveTone] || toneInstructions.professional}\n\nContexte : ${categoryContext.job_offer}\n\n${includeCTA ? 'Inclus un call-to-action fort (DM ou commentaire).' : ''}\n${includeHashtags ? '3-5 hashtags stratégiques en fin.' : 'Pas de hashtags.'}`
+    : `Rédige une publication LinkedIn sur : "${topic}"\n\nTon : ${toneInstructions[effectiveTone] || toneInstructions.professional}\n\nContexte : ${categoryContext[effectiveCategory] || ''}\n\n${includeCTA ? 'Inclus un call-to-action.' : ''}\n${includeHashtags ? '3-5 hashtags en fin.' : 'Pas de hashtags.'}\n\nÉcris UNIQUEMENT le texte du post.`;
 
   try {
-    const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
-      model: 'llama-3.3-70b-versatile',
+    const response = await axios.post('https://api.anthropic.com/v1/messages', {
+      model: 'claude-sonnet-4-6',
       max_tokens: 1500,
-      messages: [
-        { role: 'system', content: LINKEDIN_EXPERT_PROMPT },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.8,
+      system: LINKEDIN_EXPERT_PROMPT,
+      messages: [{ role: 'user', content: userPrompt }],
     }, {
       headers: {
-        'Authorization': 'Bearer ' + process.env.GROQ_API_KEY,
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
       timeout: 30000,
     });
 
-    const generatedText = response.data.choices[0].message.content.trim();
+    const generatedText = response.data.content[0].text.trim();
+    logActivity(req.user.id, req.user.name, 'generate_post', {
+      category: effectiveCategory, tone: effectiveTone, topic,
+      source: 'anthropic_api', model: 'claude-sonnet-4-6',
+    });
 
-    // Track activity
-    logActivity(req.user.id, req.user.name, 'generate_post', { category, tone, topic, model: 'llama-3.3-70b', aiGenerated: true });
-
-    res.json({ content: generatedText, model: 'Llama 3.3 70B' });
+    res.json({ content: generatedText, model: 'claude-sonnet-4-6', source: 'anthropic_api' });
   } catch (error) {
     console.error('AI generation error:', error.response?.data || error.message);
     res.status(500).json({
-      error: 'Erreur de generation IA',
+      error: 'Erreur de génération IA',
       details: error.response?.data?.error?.message || error.message,
     });
   }
 });
 
-/* ====================================================================
-   TEAMTAILOR - Fetch real jobs from career site
-   ==================================================================== */
+/* ════════════════════════════════════════════════════════════════════
+   TEAMTAILOR — Fetch real jobs from career site
+   ════════════════════════════════════════════════════════════════════ */
 
 app.get('/api/teamtailor/jobs', async (req, res) => {
   try {
@@ -943,7 +1002,7 @@ app.get('/api/teamtailor/jobs', async (req, res) => {
         jobs = connectResponse.data.map(j => ({
           id: j.id,
           title: j.title,
-          location: j.location || j.city || 'Non precise',
+          location: j.location || j.city || 'Non précisé',
           department: j.department || '',
           url: j.url || `https://jobs.talentysrh.com/jobs/${j.id}`,
           createdAt: j.created_at || j.createdAt,
@@ -962,7 +1021,7 @@ app.get('/api/teamtailor/jobs', async (req, res) => {
             jobs = jsonLd.itemListElement.map((item, i) => ({
               id: i + 1,
               title: item.name || item.title,
-              location: item.jobLocation?.address?.addressLocality || 'Non precise',
+              location: item.jobLocation?.address?.addressLocality || 'Non précisé',
               department: item.industry || '',
               url: item.url || '',
             }));
@@ -978,10 +1037,10 @@ app.get('/api/teamtailor/jobs', async (req, res) => {
         while ((match = jobRegex.exec(html)) !== null) {
           const rawUrl = match[1];
           const jobId = match[2];
-          const innerText = match[3].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').replace(/&middot;/g, '*').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n)).replace(/&nbsp;/g, ' ').trim();
+          const innerText = match[3].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').replace(/&middot;/g, '·').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n)).replace(/&nbsp;/g, ' ').trim();
           const url = rawUrl.startsWith('http') ? rawUrl : `https://jobs.talentysrh.com${rawUrl}`;
-          // Parse "Title  Department * Location" pattern
-          const parts = innerText.split(/\s*\*\s*/);
+          // Parse "Title  Department · Location" pattern
+          const parts = innerText.split(/\s*·\s*/);
           const titlePart = (parts[0] || '').trim();
           const locationPart = (parts[parts.length - 1] || '').trim();
           const deptPart = parts.length > 2 ? parts[1].trim() : (parts.length > 1 ? parts[1].trim() : '');
@@ -990,7 +1049,7 @@ app.get('/api/teamtailor/jobs', async (req, res) => {
             jobs.push({
               id: parseInt(jobId),
               title: titlePart,
-              location: parts.length > 1 ? locationPart : 'Non precise',
+              location: parts.length > 1 ? locationPart : 'Non précisé',
               department: parts.length > 2 ? deptPart : (parts.length > 1 ? locationPart : ''),
               url,
             });
@@ -1006,9 +1065,9 @@ app.get('/api/teamtailor/jobs', async (req, res) => {
   }
 });
 
-/* ====================================================================
+/* ════════════════════════════════════════════════════════════════════
    SERVE FRONTEND IN PRODUCTION
-   ==================================================================== */
+   ════════════════════════════════════════════════════════════════════ */
 
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(join(__dirname, '..', 'dist')));
@@ -1018,8 +1077,8 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.listen(PORT, () => {
-  console.log(`\n  [ROCKET] PostFlow API server running on http://localhost:${PORT}`);
-  console.log(`  [RADIO] LinkedIn OAuth:  ${process.env.LINKEDIN_CLIENT_ID ? '[OK] Configured' : '[WARNING]  Missing LINKEDIN_CLIENT_ID'}`);
-  console.log(`  [PICTURE]  Pexels API:     ${process.env.PEXELS_API_KEY ? '[OK] Configured' : '[WARNING]  Missing PEXELS_API_KEY'}`);
-  console.log(`  [GLOBE] Frontend URL:   ${process.env.FRONTEND_URL || 'http://localhost:5173'}\n`);
-}); 
+  console.log(`\n  🚀 PostFlow API server running on http://localhost:${PORT}`);
+  console.log(`  📡 LinkedIn OAuth:  ${process.env.LINKEDIN_CLIENT_ID ? '✅ Configured' : '⚠️  Missing LINKEDIN_CLIENT_ID'}`);
+  console.log(`  🖼️  Pexels API:     ${process.env.PEXELS_API_KEY ? '✅ Configured' : '⚠️  Missing PEXELS_API_KEY'}`);
+  console.log(`  🌐 Frontend URL:   ${process.env.FRONTEND_URL || 'http://localhost:5173'}\n`);
+});
