@@ -16,6 +16,7 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 const DB_PATH = join(__dirname, 'data', 'users.json');
 const ACTIVITY_PATH = join(__dirname, 'data', 'activity.json');
 const LIBRARY_PATH = join(__dirname, 'data', 'posts_library.json');
+const SCHEDULED_PATH = join(__dirname, 'data', 'scheduled_posts.json');
 
 /* ════════════════════════════════════════════════════════════════════
    POSTS LIBRARY — 990 pre-generated high-quality posts
@@ -1076,6 +1077,223 @@ app.get('/api/teamtailor/jobs', async (req, res) => {
     res.status(500).json({ error: 'Erreur Teamtailor', details: error.message });
   }
 });
+
+/* ════════════════════════════════════════════════════════════════════
+   SCHEDULED POSTS — Persistent storage + auto-publish scheduler
+   ════════════════════════════════════════════════════════════════════ */
+
+// Load scheduled posts from disk
+const loadScheduledPosts = () => {
+  try {
+    if (existsSync(SCHEDULED_PATH)) {
+      return JSON.parse(readFileSync(SCHEDULED_PATH, 'utf-8'));
+    }
+  } catch (err) {
+    console.error('⚠️ Could not load scheduled posts:', err.message);
+  }
+  return [];
+};
+
+const saveScheduledPosts = (posts) => {
+  try {
+    writeFileSync(SCHEDULED_PATH, JSON.stringify(posts, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('⚠️ Could not save scheduled posts:', err.message);
+  }
+};
+
+let scheduledPosts = loadScheduledPosts();
+console.log(`📅 Scheduled posts loaded: ${scheduledPosts.length}`);
+
+// GET — list all scheduled posts (optionally filter by status)
+app.get('/api/scheduled-posts', requireAuth, (req, res) => {
+  const { status } = req.query;
+  let posts = scheduledPosts;
+  if (status) posts = posts.filter(p => p.status === status);
+  res.json(posts);
+});
+
+// POST — create a new scheduled post
+app.post('/api/scheduled-posts', requireAuth, (req, res) => {
+  const { content, date, time, category, author, imageUrl, linkedinUserId } = req.body;
+
+  if (!content || !date || !time) {
+    return res.status(400).json({ error: 'Contenu, date et heure requis' });
+  }
+
+  const newPost = {
+    id: Date.now().toString(),
+    content,
+    date,
+    time,
+    category: category || 'hr_news',
+    author: author || req.user.name,
+    imageUrl: imageUrl || '',
+    linkedinUserId: linkedinUserId || null,
+    status: 'scheduled',
+    createdAt: new Date().toISOString(),
+    createdBy: req.user.id,
+  };
+
+  scheduledPosts.push(newPost);
+  saveScheduledPosts(scheduledPosts);
+
+  logActivity(req.user.id, req.user.name, 'schedule_post', {
+    date, time, category, postId: newPost.id,
+  });
+
+  res.json(newPost);
+});
+
+// PATCH — update a scheduled post
+app.patch('/api/scheduled-posts/:id', requireAuth, (req, res) => {
+  const idx = scheduledPosts.findIndex(p => p.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Post non trouvé' });
+
+  const post = scheduledPosts[idx];
+  if (post.status === 'published') {
+    return res.status(400).json({ error: 'Publication déjà publiée, impossible de modifier' });
+  }
+
+  const { content, date, time, category, author, imageUrl } = req.body;
+  if (content !== undefined) post.content = content;
+  if (date !== undefined) post.date = date;
+  if (time !== undefined) post.time = time;
+  if (category !== undefined) post.category = category;
+  if (author !== undefined) post.author = author;
+  if (imageUrl !== undefined) post.imageUrl = imageUrl;
+
+  saveScheduledPosts(scheduledPosts);
+  res.json(post);
+});
+
+// DELETE — remove a scheduled post
+app.delete('/api/scheduled-posts/:id', requireAuth, (req, res) => {
+  const idx = scheduledPosts.findIndex(p => p.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Post non trouvé' });
+
+  const removed = scheduledPosts.splice(idx, 1)[0];
+  saveScheduledPosts(scheduledPosts);
+  res.json({ success: true, removed });
+});
+
+// ── SCHEDULER: auto-publish posts at their scheduled time ──
+const runScheduler = async () => {
+  const now = new Date();
+  // Format current time in Paris timezone (Martinique is UTC-4, but we use the post's local intent)
+  const currentDate = now.toISOString().slice(0, 10); // YYYY-MM-DD in UTC
+  const currentHour = String(now.getUTCHours()).padStart(2, '0');
+  const currentMin = String(now.getUTCMinutes()).padStart(2, '0');
+  const currentTimeUTC = `${currentHour}:${currentMin}`;
+
+  // Also compute time in common Caribbean timezones (UTC-4 = Martinique/Guadeloupe/Guyane)
+  const carib = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+  const caribDate = carib.toISOString().slice(0, 10);
+  const caribTime = `${String(carib.getUTCHours()).padStart(2, '0')}:${String(carib.getUTCMinutes()).padStart(2, '0')}`;
+
+  // Also Paris time (UTC+2 in summer, UTC+1 in winter)
+  const paris = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+  const parisDate = `${paris.getFullYear()}-${String(paris.getMonth() + 1).padStart(2, '0')}-${String(paris.getDate()).padStart(2, '0')}`;
+  const parisTime = `${String(paris.getHours()).padStart(2, '0')}:${String(paris.getMinutes()).padStart(2, '0')}`;
+
+  // Find posts that are due (check Caribbean time as primary since most users are in DOM-TOM)
+  const duePosts = scheduledPosts.filter(p => {
+    if (p.status !== 'scheduled') return false;
+    // Match on Caribbean time (primary) or Paris time (fallback)
+    return (p.date === caribDate && p.time === caribTime) ||
+           (p.date === parisDate && p.time === parisTime) ||
+           // Also catch posts that are past due (missed window) — publish within 5 min
+           (p.date < caribDate || (p.date === caribDate && p.time < caribTime));
+  });
+
+  for (const post of duePosts) {
+    console.log(`📤 Auto-publishing scheduled post ${post.id}: "${post.content.substring(0, 50)}..."`);
+
+    // Find a LinkedIn token to publish with
+    const linkedinUserId = post.linkedinUserId || post.createdBy;
+    let tokenData = null;
+
+    // Try to find a valid LinkedIn token
+    for (const [uid, data] of tokenStore.entries()) {
+      if (data.expires_at > Date.now()) {
+        tokenData = data;
+        break;
+      }
+    }
+
+    if (!tokenData) {
+      console.warn(`⚠️ No valid LinkedIn token found for post ${post.id}. Marking as failed.`);
+      post.status = 'failed';
+      post.failReason = 'Aucun compte LinkedIn connecté ou token expiré. Connectez-vous à LinkedIn dans PostFlow.';
+      post.attemptedAt = new Date().toISOString();
+      saveScheduledPosts(scheduledPosts);
+      continue;
+    }
+
+    try {
+      const { access_token, profile } = tokenData;
+
+      let shareMediaCategory = 'NONE';
+      let media = undefined;
+
+      // Upload image if present
+      if (post.imageUrl) {
+        try {
+          const imageBuffer = await getImageBuffer(post.imageUrl);
+          const assetUrn = await uploadImageToLinkedIn(access_token, profile.id, imageBuffer);
+          shareMediaCategory = 'IMAGE';
+          media = [{ status: 'READY', media: assetUrn, description: { text: 'Publication PostFlow by Talentys RH' } }];
+        } catch (imgErr) {
+          console.error(`Image upload failed for post ${post.id}:`, imgErr.message);
+        }
+      }
+
+      const postBody = {
+        author: `urn:li:person:${profile.id}`,
+        lifecycleState: 'PUBLISHED',
+        specificContent: {
+          'com.linkedin.ugc.ShareContent': {
+            shareCommentary: { text: post.content },
+            shareMediaCategory,
+            ...(media && { media }),
+          },
+        },
+        visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+      };
+
+      const response = await axios.post('https://api.linkedin.com/v2/ugcPosts', postBody, {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          'Content-Type': 'application/json',
+          'X-Restli-Protocol-Version': '2.0.0',
+        },
+      });
+
+      post.status = 'published';
+      post.publishedAt = new Date().toISOString();
+      post.linkedinPostId = response.data.id;
+      console.log(`✅ Post ${post.id} published successfully on LinkedIn!`);
+
+      logActivity(post.createdBy || 'scheduler', post.author || 'Scheduler', 'publish_linkedin', {
+        postId: post.id, scheduled: true, hasImage: !!post.imageUrl,
+      });
+
+    } catch (err) {
+      console.error(`❌ Failed to publish post ${post.id}:`, err.response?.data || err.message);
+      post.status = 'failed';
+      post.failReason = err.response?.data?.message || err.message;
+      post.attemptedAt = new Date().toISOString();
+    }
+
+    saveScheduledPosts(scheduledPosts);
+  }
+};
+
+// Run scheduler every 60 seconds
+setInterval(runScheduler, 60 * 1000);
+// Also run once on startup (after a short delay)
+setTimeout(runScheduler, 10 * 1000);
+console.log('⏰ Scheduler started — checking for due posts every 60 seconds');
 
 /* ════════════════════════════════════════════════════════════════════
    SERVE FRONTEND IN PRODUCTION

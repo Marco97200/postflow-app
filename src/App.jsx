@@ -9,8 +9,7 @@ import {
   RefreshCw, Download, ArrowRight, Lightbulb, Award, Coffee, Rocket,
   BarChart3, Link2, Unlink, Camera, MapPin, Flag, Trophy, Flame,
   ChevronDown, ExternalLink, Play, Pause, AlertCircle, CheckCircle2,
-  ImageIcon, Loader, ArrowUpRight, Activity, Linkedin
-, RotateCcw, AlertTriangle,
+  ImageIcon, Loader, ArrowUpRight, Activity, Linkedin, RotateCcw, AlertTriangle,
   Upload, ChevronUp
 } from "lucide-react";
 
@@ -322,8 +321,18 @@ const PEXELS_RESULTS = {
   ],
 };
 
-/* ═══ PERFORMANCE DATA (real data from scheduled posts) ═══ */
-const PERF_DATA = [];
+/* ═══ PERFORMANCE DATA (simulated) ═══ */
+const PERF_DATA = [
+  { id: 1, date: "2026-03-10", title: "🚀 Recrutement Directeur Commercial", impressions: 2847, likes: 68, comments: 12, shares: 8, ctr: 4.2, category: "job_offer" },
+  { id: 2, date: "2026-03-12", title: "🎯 Nos services Talentys RH", impressions: 3890, likes: 95, comments: 18, shares: 27, ctr: 5.8, category: "promo_services" },
+  { id: 3, date: "2026-03-14", title: "💡 Conseil RH : Soft Skills", impressions: 4123, likes: 112, comments: 34, shares: 21, ctr: 6.1, category: "hr_news" },
+  { id: 4, date: "2026-03-16", title: "👔 Coût d'un recrutement raté", impressions: 6210, likes: 203, comments: 56, shares: 42, ctr: 9.3, category: "prospection" },
+  { id: 5, date: "2026-03-18", title: "🏢 Marque employeur : 5 leviers", impressions: 3456, likes: 89, comments: 22, shares: 15, ctr: 5.2, category: "employer_brand" },
+  { id: 6, date: "2026-03-20", title: "🌴 Économie Guadeloupe 2026", impressions: 1856, likes: 45, comments: 8, shares: 5, ctr: 3.4, category: "outremer" },
+  { id: 7, date: "2026-03-22", title: "🌟 Success Story : Julie", impressions: 5234, likes: 187, comments: 42, shares: 35, ctr: 8.7, category: "testimony" },
+  { id: 8, date: "2026-03-24", title: "📋 Cas client — DAF Martinique", impressions: 4567, likes: 134, comments: 31, shares: 28, ctr: 7.1, category: "case_study" },
+  { id: 9, date: "2026-03-26", title: "🔥 Erreur n°1 en recrutement", impressions: 3567, likes: 94, comments: 28, shares: 16, ctr: 5.5, category: "hr_news" },
+];
 
 /* ═══ SUGGESTION TOPICS BANK ═══ */
 const SUGGESTION_TOPICS = {
@@ -379,10 +388,12 @@ const SUGGESTION_TOPICS = {
   ],
 };
 
-const BEST_DAYS = [2, 3, 4];
+/* Best posting days: Tue=2, Wed=3, Thu=4 (JS getDay()) — best hours: 8-10h */
+const BEST_DAYS = [2, 3, 4]; /* mardi, mercredi, jeudi */
 const POSTS_PER_WEEK = 3;
 
 const getSuggestions = (scheduledPosts, contentMix, now) => {
+  /* 1. Find next optimal posting dates (Tue/Wed/Thu) for the next 2 weeks */
   const upcoming = [];
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   for (let i = 0; i <= 14 && upcoming.length < 6; i++) {
@@ -393,16 +404,32 @@ const getSuggestions = (scheduledPosts, contentMix, now) => {
     const hasPost = scheduledPosts.some(p => p.date === ds);
     upcoming.push({ date: d, dateStr: ds, dayName: ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"][dow], hasPost });
   }
-  const ranked = [...contentMix].sort((a, b) => (b.target - b.percent) - (a.target - a.percent));
+
+  /* 2. Rank categories by deficit (target% - actual%) */
+  const ranked = [...contentMix].sort((a, b) => {
+    const defA = a.target - a.percent;
+    const defB = b.target - b.percent;
+    return defB - defA;
+  });
+
+  /* 3. Assign a category + topic to each open slot */
   const suggestions = [];
   let catIdx = 0;
   for (const slot of upcoming) {
     if (slot.hasPost) continue;
     const cat = ranked[catIdx % ranked.length];
     const topics = SUGGESTION_TOPICS[cat.id] || [];
+    /* rotate through topics based on week number to avoid repeats */
     const weekNum = Math.floor((slot.date.getTime() - today.getTime()) / (7 * 86400000));
     const topic = topics.length > 0 ? topics[(catIdx + weekNum) % topics.length] : { title: cat.label, hint: "" };
-    suggestions.push({ date: slot.date, dateStr: slot.dateStr, dayName: slot.dayName, category: cat, topic, time: "09:00" });
+    suggestions.push({
+      date: slot.date,
+      dateStr: slot.dateStr,
+      dayName: slot.dayName,
+      category: cat,
+      topic,
+      time: "09:00",
+    });
     catIdx++;
   }
   return suggestions;
@@ -724,89 +751,7 @@ function AppMain({ authUser, onLogout }) {
     try { localStorage?.setItem?.("postflow-theme", next); } catch(e) {}
   };
   const [tab, setTab] = useState("dashboard");
-  const [scheduledPosts, setScheduledPosts] = useState([
-
-        {
-            "id": 1,
-            "content": "🚀 Talentys RH recrute pour un poste de Directeur Commercial en Martinique !\n\nNotre client, leader dans son secteur, recherche un profil senior.\n\n→ 10+ ans d’expérience\n→ Leadership éprouvé\n→ Connaissance du marché local\n\n📩 Contactez-moi !\n\n#Recrutement #Martinique #Emploi",
-            "date": "2026-03-28",
-            "time": "09:00",
-            "category": "job_offer",
-            "status": "scheduled",
-            "author": "Marco B.",
-            "imageUrl": ""
-        },
-        {
-            "id": 2,
-            "content": "💡 Le conseil RH de la semaine :\n\nArrêtez de recruter uniquement sur le CV.\n\nLes soft skills font la différence :\n\n1️⃣ Adaptabilité\n2️⃣ Communication\n3️⃣ Esprit d’équipe\n\n📌 Enregistrez ce post !\n\n#RH #ConseilRH #Recrutement",
-            "date": "2026-03-30",
-            "time": "12:00",
-            "category": "hr_news",
-            "status": "scheduled",
-            "author": "Marco B.",
-            "imageUrl": ""
-        },
-        {
-            "id": 3,
-            "content": "🌟 Success Story !\n\nIl y a 3 mois, Julie cherchait un nouveau challenge en Guadeloupe.\n\nAujourd’hui, elle est Responsable RH chez un grand groupe local !\n\n💪 La clé : un accompagnement personnalisé.\n\n#Réussite #Talents #Outremer",
-            "date": "2026-04-02",
-            "time": "08:30",
-            "category": "testimony",
-            "status": "scheduled",
-            "author": "Marco B.",
-            "imageUrl": ""
-        },
-        {
-            "id": 4,
-            "content": "🌴 L’économie guadeloupéenne en 2026 : les secteurs qui recrutent !\n\n📊 +12% de créations de postes dans le BTP\n📈 Le tourisme en plein boom\n🎯 La tech locale qui émerge\n\nLes opportunités sont là !\n\n#Guadeloupe #Emploi #Outremer",
-            "date": "2026-04-05",
-            "time": "10:00",
-            "category": "outremer",
-            "status": "scheduled",
-            "author": "Marco B.",
-            "imageUrl": ""
-        },
-        {
-            "id": 5,
-            "content": "☕ Ma journée type de consultant en recrutement :\n\n8h — Café + revue des candidatures\n9h — Entretien candidat\n10h30 — Brief client\n12h — Déjeuner réseau\n14h — Sourcing intensif\n16h — Suivi missions\n17h — Veille marché\n\nEt vous, à quoi ressemble votre journée ? 😄\n\n#ConsultantRH #VieDeRecruteur",
-            "date": "2026-04-07",
-            "time": "08:00",
-            "category": "consultant",
-            "status": "scheduled",
-            "author": "Marco B.",
-            "imageUrl": ""
-        },
-        {
-            "id": 6,
-            "content": "❌ Le problème :\nVotre dernier recrutement a pris 4 mois. Le candidat est parti au bout de 3.\n\n✅ La solution Talentys RH :\n\n📋 Diagnostic du besoin réel\n🔎 Sourcing ciblé via notre réseau local\n🎯 Shortlist qualifiée en 3 semaines max\n🤝 Accompagnement jusqu’à la fin de période d’essai\n\nRésultat ? 92% de nos placements encore en poste après 1 an.\n\n📩 Discutons de votre prochain recrutement.\n\n#Recrutement #RPO #TalentysRH #Outremer",
-            "date": "2026-03-29",
-            "time": "10:00",
-            "category": "promo_services",
-            "status": "scheduled",
-            "author": "Marco B.",
-            "imageUrl": ""
-        },
-        {
-            "id": 7,
-            "content": "👔 Dirigeant en Outre-Mer, cette question est pour vous :\n\nCombien vous coûte un recrutement raté ?\n\n💸 Coût direct : 30 000€ à 150 000€\n⏳ Coût indirect : temps perdu, démotivation\n😰 Coût caché : turn-over en chaîne\n\nUn cabinet spécialisé réduit ce risque de 70%.\n\n📩 Premier échange offert — écrivez-moi en DM\n\n#Dirigeant #Recrutement #ROI #TalentysRH",
-            "date": "2026-04-03",
-            "time": "09:00",
-            "category": "prospection",
-            "status": "scheduled",
-            "author": "Marco B.",
-            "imageUrl": ""
-        },
-        {
-            "id": 8,
-            "content": "📋 ÉTUDE DE CAS — Recrutement DAF en Martinique\n\n🏢 Client : Groupe BTP, 200 salariés\n⏱️ Délai : 18 jours\n✅ Candidat toujours en poste 10 mois après\n\nNotre approche :\n1️⃣ Audit du besoin avec le DG\n2️⃣ Sourcing ciblé réseau local + national\n3️⃣ Shortlist de 4 profils qualifiés\n4️⃣ Accompagnement intégration 3 mois\n\nROI estimé : 8× l’investissement initial\n\n📞 Un poste stratégique à pourvoir ?\n\n#CasClient #Recrutement #TalentysRH #Martinique",
-            "date": "2026-04-09",
-            "time": "08:30",
-            "category": "case_study",
-            "status": "scheduled",
-            "author": "Marco B.",
-            "imageUrl": ""
-        }
-    ]);
+  const [scheduledPosts, setScheduledPosts] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(new Date(2026, 2));
   const [gen, setGen] = useState({ topic: "", tone: "professional", category: "job_offer", includeHashtags: true, includeCTA: true, content: "", isGenerating: false, selectedImage: null, selectedJob: null });
   const [talentysJobs, setTalentysJobs] = useState(TALENTYS_JOBS_CACHE);
@@ -880,18 +825,18 @@ function AppMain({ authUser, onLogout }) {
   const perfStats = useMemo(() => {
     const n = PERF_DATA.length || 1;
     return {
-      avgImpressions: PERF_DATA.length === 0 ? 0 : Math.round(PERF_DATA.reduce((a, p) => a + (p.impressions || 0), 0) / n),
-      avgEngagement: PERF_DATA.length === 0 ? "0.0" : ((PERF_DATA.reduce((a, p) => a + (p.likes || 0) + (p.comments || 0) + (p.shares || 0), 0) / (PERF_DATA.reduce((a, p) => a + (p.impressions || 0), 0) || 1)) * 100).toFixed(1),
-      totalLikes: PERF_DATA.reduce((a, p) => a + (p.likes || 0), 0),
+      avgImpressions: Math.round(PERF_DATA.reduce((a, p) => a + p.impressions, 0) / n),
+      avgEngagement: PERF_DATA.length === 0 ? "0.0" : ((PERF_DATA.reduce((a, p) => a + p.likes + p.comments + p.shares, 0) / (PERF_DATA.reduce((a, p) => a + p.impressions, 0) || 1)) * 100).toFixed(1),
+      totalLikes: PERF_DATA.reduce((a, p) => a + p.likes, 0),
       total: PERF_DATA.length,
-      bestPost: PERF_DATA.length === 0 ? null : PERF_DATA.reduce((b, p) => (p.impressions || 0) > (b?.impressions || 0) ? p : b, null),
+      bestPost: PERF_DATA.reduce((b, p) => p.impressions > (b?.impressions || 0) ? p : b, null),
     };
   }, []);
 
   /* ── ACTIONS ── */
   const handleGenerate = async () => {
     // Validate inputs
-    if (false) {
+    if (gen.category !== "job_offer" && !gen.topic.trim()) {
       showNotification("Saisissez un sujet", "warning");
       return;
     }
@@ -961,11 +906,28 @@ function AppMain({ authUser, onLogout }) {
   const openSchedule = (content, imageUrl = "") => { setModalData({ content, imageUrl, isNew: true }); setSchedForm({ date: "", time: "09:00", author: "Marco B." }); setShowModal("schedule"); };
   const openPublishNow = (content, imageUrl = "") => { setModalData({ content, imageUrl }); setShowModal("publish"); };
 
-  const confirmSchedule = () => {
+  const confirmSchedule = async () => {
     if (!schedForm.date) { showNotification("Choisissez une date", "warning"); return; }
-    setScheduledPosts(prev => [...prev, { id: Date.now(), content: modalData.content, date: schedForm.date, time: schedForm.time, category: gen.category || "job_offer", status: "scheduled", author: schedForm.author, imageUrl: modalData.imageUrl || "" }]);
-    setShowModal(null); showNotification("Publication programmée !");
-    API.trackActivity("schedule_post", { date: schedForm.date, time: schedForm.time, category: gen.category });
+    try {
+      const result = await API.createScheduledPost({
+        content: modalData.content,
+        date: schedForm.date,
+        time: schedForm.time,
+        category: gen.category || "job_offer",
+        author: schedForm.author,
+        imageUrl: modalData.imageUrl || "",
+        linkedinUserId: linkedinProfile?.id || null,
+      });
+      if (result.post) {
+        setScheduledPosts(prev => [...prev, result.post]);
+      }
+      setShowModal(null);
+      showNotification("Publication programmée ! Elle sera publiée automatiquement sur LinkedIn.");
+      API.trackActivity("schedule_post", { date: schedForm.date, time: schedForm.time, category: gen.category });
+    } catch (err) {
+      console.error('Schedule error:', err);
+      showNotification(err.message || "Erreur lors de la programmation", "warning");
+    }
   };
 
   const [publishing, setPublishing] = useState(false);
@@ -989,7 +951,16 @@ function AppMain({ authUser, onLogout }) {
     }
   };
 
-  const deletePost = (id) => { setScheduledPosts(prev => prev.filter(p => p.id !== id)); showNotification("Supprimé", "warning"); };
+  const deletePost = async (id) => {
+    try {
+      await API.deleteScheduledPost(id);
+      setScheduledPosts(prev => prev.filter(p => p.id !== id));
+      showNotification("Publication supprimée", "warning");
+    } catch (err) {
+      console.error('Delete error:', err);
+      showNotification(err.message || "Erreur suppression", "warning");
+    }
+  };
   const copyText = (t) => { navigator.clipboard?.writeText(t); showNotification("Copié !"); API.trackActivity("copy_post"); };
   const useTemplate = (tpl) => { setGen(s => ({ ...s, content: tpl.content, category: tpl.category })); setTab("generator"); showNotification("Template chargé !"); API.trackActivity("use_template", { template: tpl.title }); };
 
@@ -1081,6 +1052,24 @@ function AppMain({ authUser, onLogout }) {
       showNotification("Erreur connexion LinkedIn : " + params.get('linkedin_error'), "warning");
       window.history.replaceState({}, '', window.location.pathname);
     }
+  }, []);
+
+  // Load scheduled posts from server
+  const loadScheduledPosts = async () => {
+    try {
+      const data = await API.getScheduledPosts();
+      if (data.posts) setScheduledPosts(data.posts);
+    } catch (err) {
+      console.error('Failed to load scheduled posts:', err);
+    }
+  };
+
+  useEffect(() => { loadScheduledPosts(); }, []);
+
+  // Auto-refresh scheduled posts every 2 minutes to reflect published status
+  useEffect(() => {
+    const interval = setInterval(loadScheduledPosts, 120 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   /* ════════════════════════════════════════════════════════════════
@@ -1286,7 +1275,7 @@ function AppMain({ authUser, onLogout }) {
         </div>
       )}
 
-            {/* Upcoming */}
+      {/* Upcoming */}
       <div style={{ background: T.bgCard, borderRadius: 16, border: `1px solid ${T.border}`, overflow: "hidden" }}>
         <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h3 style={{ fontSize: 14, fontWeight: 700, color: T.text, margin: 0 }}>Prochaines publications</h3>
@@ -1522,9 +1511,11 @@ function AppMain({ authUser, onLogout }) {
                     <div style={{ fontSize: 12, fontWeight: isToday(day) ? 800 : 400, color: isToday(day) ? T.accentLight : T.text, width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: isToday(day) ? T.accentBg : "transparent", marginBottom: 3 }}>{day}</div>
                     {dp.map(post => {
                       const cat = CATEGORIES.find(c => c.id === post.category);
-                      return <div key={post.id} onClick={() => { setModalData({ ...post }); setSchedForm({ date: post.date, time: post.time, author: post.author }); setShowModal("schedule"); }}
-                        style={{ padding: "3px 6px", borderRadius: 5, fontSize: 10, background: `${cat?.color || T.accent}18`, color: cat?.color || T.accent, marginBottom: 2, cursor: "pointer", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderLeft: `2px solid ${cat?.color || T.accent}` }}>
-                        {post.time}
+                      const statusColor = post.status === "published" ? "#22c55e" : post.status === "failed" ? "#ef4444" : (cat?.color || T.accent);
+                      const statusIcon = post.status === "published" ? " \u2713" : post.status === "failed" ? " !" : "";
+                      return <div key={post.id} onClick={() => { if (post.status === "scheduled") { setModalData({ ...post }); setSchedForm({ date: post.date, time: post.time, author: post.author }); setShowModal("schedule"); } }}
+                        style={{ padding: "3px 6px", borderRadius: 5, fontSize: 10, background: `${statusColor}18`, color: statusColor, marginBottom: 2, cursor: post.status === "scheduled" ? "pointer" : "default", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderLeft: `2px solid ${statusColor}` }}>
+                        {post.time}{statusIcon}
                       </div>;
                     })}
                   </>
@@ -1554,7 +1545,35 @@ function AppMain({ authUser, onLogout }) {
             </div>
           );
         })}
+        {scheduledPosts.filter(p => p.status === "scheduled").length === 0 && (
+          <div style={{ padding: "24px 20px", textAlign: "center", color: T.textMuted, fontSize: 13 }}>Aucune publication programmée</div>
+        )}
       </div>
+      {scheduledPosts.filter(p => p.status === "published" || p.status === "failed").length > 0 && (
+        <div style={{ marginTop: 16, background: T.bgCard, borderRadius: 16, border: `1px solid ${T.border}` }}>
+          <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.border}` }}><h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: T.text }}>Historique ({scheduledPosts.filter(p => p.status === "published" || p.status === "failed").length})</h3></div>
+          {scheduledPosts.filter(p => p.status === "published" || p.status === "failed").sort((a, b) => (b.publishedAt || b.date).localeCompare(a.publishedAt || a.date)).slice(0, 10).map(post => {
+            const cat = CATEGORIES.find(c => c.id === post.category);
+            const isOk = post.status === "published";
+            return (
+              <div key={post.id} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "13px 20px", borderBottom: `1px solid ${T.border}`, opacity: isOk ? 1 : 0.8 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: isOk ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {isOk ? <CheckCircle2 size={17} color="#22c55e" /> : <AlertCircle size={17} color="#ef4444" />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: T.text, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.content.split("\n")[0]}</div>
+                  <div style={{ display: "flex", gap: 10, fontSize: 11, color: T.textMuted, marginTop: 3 }}>
+                    <span style={{ color: isOk ? "#22c55e" : "#ef4444", fontWeight: 600 }}>{isOk ? "Publié" : "Echec"}</span>
+                    <span>📅 {new Date(post.date).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "long" })}</span>
+                    <span>👤 {post.author}</span>
+                  </div>
+                  {post.failReason && <div style={{ fontSize: 11, color: "#ef4444", marginTop: 2 }}>{post.failReason}</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 
@@ -1661,25 +1680,19 @@ function AppMain({ authUser, onLogout }) {
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr", padding: "9px 18px", borderBottom: `1px solid ${T.border}`, gap: 6 }}>
           {["Publication", "Impressions", "Likes", "Comments", "Partages", "Eng."].map(h => <div key={h} style={{ fontSize: 10, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.03em" }}>{h}</div>)}
         </div>
-        {PERF_DATA.length === 0 ? (
-          <div style={{ padding: "48px 24px", textAlign: "center" }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 6 }}>Aucune donnée encore</div>
-            <div style={{ fontSize: 13, color: T.textSecondary, maxWidth: 340, margin: "0 auto", lineHeight: 1.5 }}>Les statistiques de vos publications apparaîtront ici une fois que vous aurez publié du contenu sur LinkedIn.</div>
-          </div>
-        ) : PERF_DATA.map(post => {
-          const eng = (((post.likes + post.comments + post.shares) / (post.impressions || 1)) * 100).toFixed(1);
+        {PERF_DATA.map(post => {
+          const eng = (((post.likes + post.comments + post.shares) / post.impressions) * 100).toFixed(1);
           const cat = CATEGORIES.find(c => c.id === post.category);
           return (
             <div key={post.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr", padding: "11px 18px", borderBottom: `1px solid ${T.border}`, gap: 6, alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: 12.5, fontWeight: 500, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.title || "Publication"}</div>
-                <div style={{ fontSize: 10, color: T.textMuted, marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}>{cat && <span style={{ color: cat.color }}>{cat.label}</span>} · {post.date ? new Date(post.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : ""}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.title}</div>
+                <div style={{ fontSize: 10, color: T.textMuted, marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}>{cat && <span style={{ color: cat.color }}>{cat.label}</span>} · {new Date(post.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</div>
               </div>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.text }}>{(post.impressions || 0).toLocaleString()}</div>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.pink }}>{post.likes || 0}</div>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.accent }}>{post.comments || 0}</div>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.cyan }}>{post.shares || 0}</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.text }}>{post.impressions.toLocaleString()}</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.pink }}>{post.likes}</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.accent }}>{post.comments}</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.cyan }}>{post.shares}</div>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: parseFloat(eng) > 5 ? T.green : T.amber }}>{eng}%</div>
             </div>
           );
@@ -1754,22 +1767,6 @@ function AppMain({ authUser, onLogout }) {
     const [resetConfirm, setResetConfirm] = useState(false);
     const [resetting, setResetting] = useState(false);
 
-
-    const handleReset = async () => {
-      setResetting(true);
-      try {
-        await API.resetData(true, true);
-        setAdminMsg({ type: "success", text: "Toutes les donnees ont ete reinitialisees avec succes !" });
-        setResetConfirm(false);
-        const u = await API.getUsers();
-        setAdminUsers(u);
-      } catch (e) {
-        setAdminMsg({ type: "error", text: e.message });
-      } finally {
-        setResetting(false);
-      }
-    };
-
     useEffect(() => {
       API.getUsers().then(data => { setUsers(data.users || []); setAdminLoading(false); }).catch(() => setAdminLoading(false));
     }, []);
@@ -1842,6 +1839,23 @@ function AppMain({ authUser, onLogout }) {
         setUsers(prev => prev.map(u => u.id === user.id ? data.user : u));
         setAdminMsg({ type: "success", text: `${user.name} ${newStatus === "active" ? "activé" : "désactivé"}` });
       } catch (err) { setAdminMsg({ type: "error", text: err.message }); }
+    };
+
+    const handleReset = async () => {
+      setResetting(true);
+      try {
+        await API.resetData(true, true);
+        setAdminMsg({ type: "success", text: "Toutes les données ont été réinitialisées. Base propre pour le lancement !" });
+        setResetConfirm(false);
+        // Reload users
+        const data = await API.getUsers();
+        setUsers(data.users || []);
+        setActivityStats([]);
+        setActivityLog([]);
+      } catch (err) {
+        setAdminMsg({ type: "error", text: err.message });
+      }
+      setResetting(false);
     };
 
     return (
@@ -2030,7 +2044,10 @@ function AppMain({ authUser, onLogout }) {
               </div>
             </>
           )
-        )}        {adminTab === "tools" && (
+        )}
+
+        {/* ── TOOLS TAB ── */}
+        {adminTab === "tools" && (
           <div>
             {adminMsg && (
               <div style={{ padding: "12px 16px", borderRadius: 12, marginBottom: 16, fontSize: 13, fontWeight: 500, background: adminMsg.type === "success" ? T.greenBg : adminMsg.type === "error" ? T.redBg : T.amberBg, color: adminMsg.type === "success" ? T.green : adminMsg.type === "error" ? T.red : T.amber, border: `1px solid ${adminMsg.type === "success" ? T.green : adminMsg.type === "error" ? T.red : T.amber}20`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -2041,29 +2058,29 @@ function AppMain({ authUser, onLogout }) {
 
             <div style={{ background: T.bgCard, borderRadius: 16, border: `1px solid ${T.border}`, padding: 24 }}>
               <h3 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: "0 0 6px", display: "flex", alignItems: "center", gap: 8 }}>
-                <RotateCcw size={18} color={T.red} /> Reinitialiser les donnees
+                <RotateCcw size={18} color={T.red} /> Réinitialiser les données
               </h3>
               <p style={{ fontSize: 13, color: T.textSecondary, margin: "0 0 20px", lineHeight: 1.6 }}>
-                Remet la base de donnees a zero : supprime tous les utilisateurs (sauf votre compte admin), efface tout l historique d activite et deconnecte tous les comptes LinkedIn. Utile pour repartir sur une base propre.
+                Remet la base de données à zéro : supprime tous les utilisateurs (sauf votre compte admin), efface tout l'historique d'activité et déconnecte tous les comptes LinkedIn. Utile pour repartir sur une base propre.
               </p>
 
               {!resetConfirm ? (
                 <Btn variant="danger" onClick={() => setResetConfirm(true)}>
-                  <RotateCcw size={14} /> Reinitialiser toutes les donnees
+                  <RotateCcw size={14} /> Réinitialiser toutes les données
                 </Btn>
               ) : (
                 <div style={{ background: `${T.red}08`, border: `1px solid ${T.red}30`, borderRadius: 12, padding: 20 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                     <AlertTriangle size={20} color={T.red} />
-                    <span style={{ fontSize: 14, fontWeight: 700, color: T.red }}>Confirmer la reinitialisation</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: T.red }}>Confirmer la réinitialisation</span>
                   </div>
                   <p style={{ fontSize: 13, color: T.textSecondary, margin: "0 0 16px" }}>
-                    Cette action est irreversible. Toutes les donnees seront supprimees sauf votre compte administrateur.
+                    Cette action est irréversible. Toutes les données seront supprimées sauf votre compte administrateur.
                   </p>
                   <div style={{ display: "flex", gap: 10 }}>
                     <Btn variant="secondary" onClick={() => setResetConfirm(false)}>Annuler</Btn>
                     <Btn variant="danger" onClick={handleReset} disabled={resetting}>
-                      {resetting ? <><Loader size={14} style={{ animation: "spin 1s linear infinite" }} /> Reinitialisation...</> : <><Trash2 size={14} /> Oui, tout reinitialiser</>}
+                      {resetting ? <><Loader size={14} style={{ animation: "spin 1s linear infinite" }} /> Réinitialisation...</> : <><Trash2 size={14} /> Oui, tout réinitialiser</>}
                     </Btn>
                   </div>
                 </div>
@@ -2071,7 +2088,6 @@ function AppMain({ authUser, onLogout }) {
             </div>
           </div>
         )}
-
       </div>
     );
   };
@@ -2098,6 +2114,16 @@ function AppMain({ authUser, onLogout }) {
                 <option>Marco B.</option><option>Consultant 1</option><option>Consultant 2</option><option>Consultant 3</option>
               </select>
             </div>
+            {!linkedinConnected && (
+              <div style={{ padding: "10px 12px", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 8, fontSize: 12, color: T.amber, display: "flex", alignItems: "center", gap: 8 }}>
+                <AlertCircle size={15} /> Connectez LinkedIn pour que la publication soit envoyée automatiquement.
+              </div>
+            )}
+            {linkedinConnected && (
+              <div style={{ padding: "10px 12px", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 8, fontSize: 12, color: "#22c55e", display: "flex", alignItems: "center", gap: 8 }}>
+                <CheckCircle2 size={15} /> La publication sera envoyée automatiquement sur LinkedIn le jour et l'heure choisis.
+              </div>
+            )}
             <div style={{ display: "flex", gap: 7, justifyContent: "flex-end", marginTop: 4 }}>
               <Btn variant="secondary" onClick={() => setShowModal(null)}>Annuler</Btn>
               {!modalData?.isNew && <Btn variant="danger" onClick={() => { deletePost(modalData.id); setShowModal(null); }}><Trash2 size={13} /></Btn>}

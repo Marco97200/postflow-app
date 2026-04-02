@@ -189,3 +189,45 @@ export const trackActivity = async (action, details = {}) => {
     });
   } catch {}
 };
+
+// ── Scheduled Posts ──
+export const getScheduledPosts = async (status = null) => {
+  const params = status ? `?status=${status}` : '';
+  const res = await fetch(`${API_BASE}/scheduled-posts${params}`, { credentials: 'include' });
+  if (!res.ok) throw new Error('Erreur chargement publications programmées');
+  return res.json();
+};
+
+export const createScheduledPost = async (post) => {
+  const res = await fetch(`${API_BASE}/scheduled-posts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(post),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Erreur création publication');
+  return data;
+};
+
+export const updateScheduledPost = async (id, updates) => {
+  const res = await fetch(`${API_BASE}/scheduled-posts/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(updates),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Erreur modification publication');
+  return data;
+};
+
+export const deleteScheduledPost = async (id) => {
+  const res = await fetch(`${API_BASE}/scheduled-posts/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Erreur suppression publication');
+  return data;
+};
