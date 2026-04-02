@@ -843,7 +843,7 @@ app.post('/api/generate', requireAuth, async (req, res) => {
   };
 
   const categoryContext = {
-    job_offer: "Publication pour promouvoir une offre d'emploi en cours. Objectif : attirer les candidats et encourager le partage.",
+    job_offer: "Publication pour promouvoir une offre d'emploi en cours chez Talentys RH, cabinet de recrutement Outre-Mer. Marco recrute POUR SES CLIENTS. Objectif : attirer les candidats qualifies et encourager le partage dans le reseau.",
     promo_services: "Promotion des services de Talentys RH. Objectif : demontrer l'expertise et generer des leads.",
     prospection: "Contenu de prospection B2B ciblant les dirigeants et DRH. Objectif : identifier et attirer des clients potentiels.",
     employer_brand: "Contenu marque employeur. Objectif : aider les entreprises a comprendre l'importance de leur image employeur.",
@@ -856,7 +856,28 @@ app.post('/api/generate', requireAuth, async (req, res) => {
   };
 
   const userPrompt = jobInfo
-    ? `Redige une publication LinkedIn pour promouvoir cette offre d'emploi :\n- Poste : ${jobInfo.title}\n- Localisation : ${jobInfo.location}\n- Departement : ${jobInfo.department}\n- Lien : ${jobInfo.url}\n\nTon : ${toneInstructions[tone] || toneInstructions.professional}\n\nContexte categorie : ${categoryContext.job_offer}\n\n${includeCTA ? 'Inclus un call-to-action fort en fin de post (pas de lien, invite au DM ou commentaire).' : 'Pas de call-to-action explicite.'}\n${includeHashtags ? 'Termine par 3-5 hashtags strategiques.' : 'Pas de hashtags.'}`
+    ? `Redige une publication LinkedIn pour promouvoir cette offre d'emploi en cours chez Talentys RH.
+
+CONTEXTE ESSENTIEL :
+- Talentys RH est un CABINET DE RECRUTEMENT specialise Outre-Mer. Nous recrutons POUR NOS CLIENTS (entreprises).
+- Marco Beauzile publie sur LinkedIn pour attirer des candidats au nom de ses clients.
+- Ne dis JAMAIS "nous recrutons" comme si c'etait l'entreprise. Utilise : "Notre client recherche...", "Nous accompagnons une entreprise dans le recrutement de...", "Mission pour un acteur reconnu du secteur..."
+- Mentionne que les candidats peuvent postuler via le lien OU contacter Marco en DM.
+
+DETAILS DE L'OFFRE :
+- Poste : ${jobInfo.title}
+- Localisation : ${jobInfo.location}
+- Secteur : ${jobInfo.department}
+- Lien candidature : ${jobInfo.url}
+
+CONSIGNES :
+- Ton : ${toneInstructions[tone] || toneInstructions.professional}
+- Mets en avant les atouts du poste et du territoire ultramarin
+- Ajoute des missions credibles pour ce type de poste
+- ${includeCTA ? "Inclus un call-to-action fort : invite au DM, a commenter, ou a partager." : "Pas de call-to-action explicite."}
+- ${includeHashtags ? "Termine par 3-5 hashtags strategiques (recrutement + territoire + secteur)." : "Pas de hashtags."}
+
+IMPORTANT : Ecris UNIQUEMENT le texte du post LinkedIn, rien d'autre.`
     : `Redige une publication LinkedIn sur le sujet suivant : "${topic}"\n\nTon : ${toneInstructions[tone] || toneInstructions.professional}\n\nContexte categorie : ${categoryContext[category] || ''}\n\n${includeCTA ? 'Inclus un call-to-action fort en fin de post (pas de lien, invite au DM ou commentaire).' : 'Pas de call-to-action explicite.'}\n${includeHashtags ? 'Termine par 3-5 hashtags strategiques.' : 'Pas de hashtags.'}\n\nIMPORTANT : Ecris UNIQUEMENT le texte du post LinkedIn, rien d'autre. Pas d'introduction, pas d'explication, pas de guillemets autour du post.`;
 
   try {
