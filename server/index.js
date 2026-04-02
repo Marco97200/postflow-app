@@ -1096,6 +1096,8 @@ const loadScheduledPosts = () => {
 
 const saveScheduledPosts = (posts) => {
   try {
+    const dir = join(__dirname, 'data');
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     writeFileSync(SCHEDULED_PATH, JSON.stringify(posts, null, 2), 'utf-8');
   } catch (err) {
     console.error('⚠️ Could not save scheduled posts:', err.message);
@@ -1298,6 +1300,11 @@ console.log('⏰ Scheduler started — checking for due posts every 60 seconds')
 /* ════════════════════════════════════════════════════════════════════
    SERVE FRONTEND IN PRODUCTION
    ════════════════════════════════════════════════════════════════════ */
+
+// Catch-all for unknown /api routes — return JSON 404 instead of HTML
+app.all('/api/*', (req, res) => {
+  res.status(404).json({ error: 'Route API introuvable' });
+});
 
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(join(__dirname, '..', 'dist')));

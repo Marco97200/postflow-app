@@ -918,8 +918,10 @@ function AppMain({ authUser, onLogout }) {
         imageUrl: modalData.imageUrl || "",
         linkedinUserId: linkedinProfile?.id || null,
       });
-      if (result.post) {
-        setScheduledPosts(prev => [...prev, result.post]);
+      // Server returns the post object directly (not wrapped in {post: {...}})
+      const newPost = result.post || result;
+      if (newPost && newPost.id) {
+        setScheduledPosts(prev => [...prev, newPost]);
       }
       setShowModal(null);
       showNotification("Publication programmée ! Elle sera publiée automatiquement sur LinkedIn.");
@@ -1058,7 +1060,9 @@ function AppMain({ authUser, onLogout }) {
   const loadScheduledPosts = async () => {
     try {
       const data = await API.getScheduledPosts();
-      if (data.posts) setScheduledPosts(data.posts);
+      // Server returns array directly (not wrapped in {posts: [...]})
+      if (Array.isArray(data)) setScheduledPosts(data);
+      else if (data.posts) setScheduledPosts(data.posts);
     } catch (err) {
       console.error('Failed to load scheduled posts:', err);
     }
