@@ -882,11 +882,17 @@ app.post('/api/generate', requireAuth, async (req, res) => {
 
     // For job offers, replace placeholders with actual job data
     if (effectiveCategory === 'job_offer' && jobInfo) {
+      // Build full URL: if relative path like "/jobs/123-poste", prepend the Teamtailor domain
+      let fullUrl = jobInfo.url || '';
+      if (fullUrl && !fullUrl.startsWith('http')) {
+        fullUrl = `https://jobs.talentysrh.com${fullUrl.startsWith('/') ? '' : '/'}${fullUrl}`;
+      }
+
       content = content
         .replace(/\{POSTE\}/g, jobInfo.title || 'Poste à pourvoir')
         .replace(/\{LIEU\}/g, jobInfo.location || 'Outre-Mer')
         .replace(/\{DEPARTEMENT\}/g, jobInfo.department || '')
-        .replace(/\{URL\}/g, jobInfo.url || '');
+        .replace(/\{URL\}/g, fullUrl);
     }
 
     // Remove hashtags if not wanted
@@ -936,8 +942,14 @@ app.post('/api/generate', requireAuth, async (req, res) => {
     case_study: "Étude de cas recrutement.",
   };
 
+  // Build full job URL for the API fallback too
+  let apiJobUrl = jobInfo?.url || '';
+  if (apiJobUrl && !apiJobUrl.startsWith('http')) {
+    apiJobUrl = `https://jobs.talentysrh.com${apiJobUrl.startsWith('/') ? '' : '/'}${apiJobUrl}`;
+  }
+
   const userPrompt = jobInfo
-    ? `Rédige une publication LinkedIn pour promouvoir cette offre d'emploi :\n- Poste : ${jobInfo.title}\n- Localisation : ${jobInfo.location}\n- Département : ${jobInfo.department}\n- Lien : ${jobInfo.url}\n\nTon : ${toneInstructions[effectiveTone] || toneInstructions.professional}\n\nContexte : ${categoryContext.job_offer}\n\n${includeCTA ? 'Inclus un call-to-action fort (DM ou commentaire).' : ''}\n${includeHashtags ? '3-5 hashtags stratégiques en fin.' : 'Pas de hashtags.'}`
+    ? `Rédige une publication LinkedIn pour promouvoir cette offre d'emploi :\n- Poste : ${jobInfo.title}\n- Localisation : ${jobInfo.location}\n- Département : ${jobInfo.department}\n- Lien : ${apiJobUrl}\n\nTon : ${toneInstructions[effectiveTone] || toneInstructions.professional}\n\nContexte : ${categoryContext.job_offer}\n\n${includeCTA ? 'Inclus un call-to-action fort (DM ou commentaire).' : ''}\n${includeHashtags ? '3-5 hashtags stratégiques en fin.' : 'Pas de hashtags.'}`
     : `Rédige une publication LinkedIn sur : "${topic}"\n\nTon : ${toneInstructions[effectiveTone] || toneInstructions.professional}\n\nContexte : ${categoryContext[effectiveCategory] || ''}\n\n${includeCTA ? 'Inclus un call-to-action.' : ''}\n${includeHashtags ? '3-5 hashtags en fin.' : 'Pas de hashtags.'}\n\nÉcris UNIQUEMENT le texte du post.`;
 
   try {
