@@ -708,15 +708,23 @@ async function getImageBuffer(imageUrl) {
 }
 
 app.post('/api/linkedin/publish', async (req, res) => {
-  const userId = req.cookies.linkedin_user;
-  if (!userId || !tokenStore.has(userId)) {
-    return res.status(401).json({ error: 'Non connecté à LinkedIn' });
-  }
-
-  const { access_token, profile } = tokenStore.get(userId);
-  const { text, imageUrl } = req.body;
-
   try {
+    const userId = req.cookies.linkedin_user;
+    if (!userId || !tokenStore.has(userId)) {
+      return res.status(401).json({ error: 'Session LinkedIn expirée. Veuillez vous reconnecter à LinkedIn.' });
+    }
+
+    const tokenData = tokenStore.get(userId);
+    if (!tokenData || !tokenData.access_token || !tokenData.profile) {
+      return res.status(401).json({ error: 'Token LinkedIn invalide. Veuillez vous reconnecter à LinkedIn.' });
+    }
+
+    const { access_token, profile } = tokenData;
+    const { text, imageUrl } = req.body;
+
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ error: 'Le contenu de la publication est vide' });
+    }
     let shareMediaCategory = 'NONE';
     let media = undefined;
 
@@ -1304,6 +1312,15 @@ console.log('⏰ Scheduler started — checking for due posts every 60 seconds')
 // Catch-all for unknown /api routes — return JSON 404 instead of HTML
 app.all('/api/*', (req, res) => {
   res.status(404).json({ error: 'Route API introuvable' });
+});
+
+// Global error handler — MUST return JSON for /api/ routes, never HTML
+app.use((err, req, res, _next) => {
+  console.error('🔴 Unhandled error:', err.message, err.stack?.split('\n')[1]);
+  if (req.path.startsWith('/api/')) {
+    return res.status(500).json({ error: 'Erreur serveur interne', details: err.message });
+  }
+  res.status(500).send('Internal Server Error');
 });
 
 if (process.env.NODE_ENV === 'production') {

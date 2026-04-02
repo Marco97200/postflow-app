@@ -6,15 +6,30 @@ const API_BASE = '/api';
 
 // Helper: safely parse JSON response, detect HTML errors (Render cold start)
 const safeJson = async (res) => {
+  const contentType = res.headers.get('content-type') || '';
+
+  // If content-type says JSON, parse it directly
+  if (contentType.includes('application/json')) {
+    try {
+      return await res.json();
+    } catch {
+      throw new Error('Réponse JSON invalide du serveur');
+    }
+  }
+
+  // Otherwise read as text and check
   const text = await res.text();
+
   // Detect HTML response (Render loading page or Express 404 fallback)
-  if (text.startsWith('<!') || text.startsWith('<html') || text.startsWith('<!DOCTYPE')) {
+  if (text.trim().startsWith('<!') || text.trim().startsWith('<html')) {
     throw new Error('Le serveur est en cours de démarrage, veuillez réessayer dans quelques secondes.');
   }
+
+  // Try to parse as JSON anyway
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error('Réponse invalide du serveur');
+    throw new Error(`Réponse inattendue du serveur (${res.status})`);
   }
 };
 
