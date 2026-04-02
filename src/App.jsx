@@ -322,18 +322,8 @@ const PEXELS_RESULTS = {
   ],
 };
 
-/* ═══ PERFORMANCE DATA (simulated) ═══ */
-const PERF_DATA = [
-    { day: "Lun", impressions: 1250, engagement: 4.2, clicks: 52 },
-    { day: "Mar", impressions: 1480, engagement: 5.1, clicks: 75 },
-    { day: "Mer", impressions: 980, engagement: 3.8, clicks: 37 },
-    { day: "Jeu", impressions: 2100, engagement: 6.3, clicks: 132 },
-    { day: "Ven", impressions: 1750, engagement: 5.7, clicks: 99 },
-    { day: "Sam", impressions: 620, engagement: 2.9, clicks: 18 },
-    { day: "Dim", impressions: 430, engagement: 2.1, clicks: 9 },
-    { day: "Lun", impressions: 1580, engagement: 4.8, clicks: 63 },
-    { day: "Mar", impressions: 1920, engagement: 5.5, clicks: 108 },
-  ];
+/* ═══ PERFORMANCE DATA (real data from scheduled posts) ═══ */
+const PERF_DATA = [];
 
 /* ═══ SUGGESTION TOPICS BANK ═══ */
 const SUGGESTION_TOPICS = {
@@ -890,11 +880,11 @@ function AppMain({ authUser, onLogout }) {
   const perfStats = useMemo(() => {
     const n = PERF_DATA.length || 1;
     return {
-      avgImpressions: Math.round(PERF_DATA.reduce((a, p) => a + p.impressions, 0) / n),
-      avgEngagement: PERF_DATA.length === 0 ? "0.0" : ((PERF_DATA.reduce((a, p) => a + p.likes + p.comments + p.shares, 0) / (PERF_DATA.reduce((a, p) => a + p.impressions, 0) || 1)) * 100).toFixed(1),
-      totalLikes: PERF_DATA.reduce((a, p) => a + p.likes, 0),
+      avgImpressions: PERF_DATA.length === 0 ? 0 : Math.round(PERF_DATA.reduce((a, p) => a + (p.impressions || 0), 0) / n),
+      avgEngagement: PERF_DATA.length === 0 ? "0.0" : ((PERF_DATA.reduce((a, p) => a + (p.likes || 0) + (p.comments || 0) + (p.shares || 0), 0) / (PERF_DATA.reduce((a, p) => a + (p.impressions || 0), 0) || 1)) * 100).toFixed(1),
+      totalLikes: PERF_DATA.reduce((a, p) => a + (p.likes || 0), 0),
       total: PERF_DATA.length,
-      bestPost: PERF_DATA.reduce((b, p) => p.impressions > (b?.impressions || 0) ? p : b, null),
+      bestPost: PERF_DATA.length === 0 ? null : PERF_DATA.reduce((b, p) => (p.impressions || 0) > (b?.impressions || 0) ? p : b, null),
     };
   }, []);
 
@@ -1671,19 +1661,25 @@ function AppMain({ authUser, onLogout }) {
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr", padding: "9px 18px", borderBottom: `1px solid ${T.border}`, gap: 6 }}>
           {["Publication", "Impressions", "Likes", "Comments", "Partages", "Eng."].map(h => <div key={h} style={{ fontSize: 10, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.03em" }}>{h}</div>)}
         </div>
-        {PERF_DATA.map(post => {
-          const eng = (((post.likes + post.comments + post.shares) / post.impressions) * 100).toFixed(1);
+        {PERF_DATA.length === 0 ? (
+          <div style={{ padding: "48px 24px", textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 6 }}>Aucune donnée encore</div>
+            <div style={{ fontSize: 13, color: T.textSecondary, maxWidth: 340, margin: "0 auto", lineHeight: 1.5 }}>Les statistiques de vos publications apparaîtront ici une fois que vous aurez publié du contenu sur LinkedIn.</div>
+          </div>
+        ) : PERF_DATA.map(post => {
+          const eng = (((post.likes + post.comments + post.shares) / (post.impressions || 1)) * 100).toFixed(1);
           const cat = CATEGORIES.find(c => c.id === post.category);
           return (
             <div key={post.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr", padding: "11px 18px", borderBottom: `1px solid ${T.border}`, gap: 6, alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: 12.5, fontWeight: 500, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.title}</div>
-                <div style={{ fontSize: 10, color: T.textMuted, marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}>{cat && <span style={{ color: cat.color }}>{cat.label}</span>} · {new Date(post.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.title || "Publication"}</div>
+                <div style={{ fontSize: 10, color: T.textMuted, marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}>{cat && <span style={{ color: cat.color }}>{cat.label}</span>} · {post.date ? new Date(post.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : ""}</div>
               </div>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.text }}>{post.impressions.toLocaleString()}</div>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.pink }}>{post.likes}</div>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.accent }}>{post.comments}</div>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.cyan }}>{post.shares}</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.text }}>{(post.impressions || 0).toLocaleString()}</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.pink }}>{post.likes || 0}</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.accent }}>{post.comments || 0}</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.cyan }}>{post.shares || 0}</div>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: parseFloat(eng) > 5 ? T.green : T.amber }}>{eng}%</div>
             </div>
           );
